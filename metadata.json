@@ -1,0 +1,5 @@
+{
+  "name": "Copy of タイムカード OCR to Excel",
+  "description": "タイムカード画像をOCRで読み取り、データを処理し、必要に応じて修正を加えてからExcelファイルとしてエクスポートするアプリケーションです。",
+  "requestFramePermissions": []
+}
