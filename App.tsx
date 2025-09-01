@@ -2,17 +2,35 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { processTimeCardFile } from './services/geminiService';
 import { TimeCardData } from './types';
+<<<<<<< HEAD
+import { UploadIcon, DownloadIcon, ProcessingIcon, FileIcon, CloseIcon, MailIcon, UsersIcon, TableCellsIcon, SparklesIcon, ChevronDownIcon } from './components/icons';
+import { UpdateNotification } from './components/UpdateNotification';
+import * as XLSX from 'xlsx';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// PDF.jsのワーカーパスを設定します。importmapのURLと一致させます。
+const PDF_WORKER_URL = 'https://aistudiocdn.com/pdfjs-dist@5.4.54/build/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
+
+=======
 import { UploadIcon, DownloadIcon, ProcessingIcon, FileIcon, CloseIcon } from './components/icons';
 
 // TypeScript declaration for the libraries loaded from CDN
 declare var XLSX: any;
 declare var pdfjsLib: any;
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
 
 interface FilePreview {
   file: File;
   type: 'image' | 'pdf';
+<<<<<<< HEAD
+  url: string | null; // 画像のURLまたはPDFサムネイルのData URL
+  name: string;
+  isLoading: boolean; // PDFサムネイル生成中のローディング状態
+=======
   url: string | null; // URL for images, null for PDFs
   name: string;
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
 }
 
 const readFileAsBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
@@ -28,6 +46,21 @@ const readFileAsBase64 = (file: File): Promise<{ base64: string; mimeType: strin
   });
 };
 
+<<<<<<< HEAD
+const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            resolve(reader.result as ArrayBuffer);
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsArrayBuffer(file);
+    });
+};
+
+
+=======
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
 const MultiFileUploader: React.FC<{
   onFilesUpload: (files: FileList) => void;
   previews: FilePreview[];
@@ -57,11 +90,30 @@ const MultiFileUploader: React.FC<{
     <div className="w-full">
       <label
         htmlFor="file-upload"
+<<<<<<< HEAD
+        className="relative flex flex-col justify-center items-center w-full min-h-[16rem] p-4 transition bg-white border-2 border-gray-300 border-dashed rounded-lg appearance-none cursor-pointer hover:border-blue-400 focus:outline-none"
+=======
         className="relative flex flex-col justify-center items-center w-full min-h-[16rem] p-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-gray-400 focus:outline-none"
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
         {previews.length === 0 ? (
+<<<<<<< HEAD
+          <div className="flex flex-col items-center justify-center space-y-3 text-center pointer-events-none">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
+              <UploadIcon className="h-10 w-10 text-slate-500" />
+            </div>
+            <p className="font-semibold text-gray-700">
+              ファイルをここにドラッグ＆ドロップ
+            </p>
+            <p className="text-sm text-gray-500">
+              または <span className="text-blue-600 font-medium">クリックしてファイルを選択</span>
+            </p>
+            <p className="text-xs text-gray-500 pt-2">
+              (複数ファイルの画像またはPDFに対応)
+            </p>
+=======
           <div className="flex items-center space-x-2 text-center">
             <UploadIcon className="w-6 h-6 text-gray-600" />
             <span className="font-medium text-gray-600">
@@ -69,6 +121,7 @@ const MultiFileUploader: React.FC<{
               <span className="text-blue-600 underline">クリックして選択</span>
               <p className="text-sm text-gray-500">(複数ファイル選択可)</p>
             </span>
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
           </div>
         ) : (
           <div className="w-full h-full">
@@ -86,6 +139,24 @@ const MultiFileUploader: React.FC<{
                   >
                     <CloseIcon className="w-4 h-4" />
                   </button>
+<<<<<<< HEAD
+                  {p.isLoading ? (
+                    <div className="flex flex-col items-center justify-center h-full p-2">
+                        <ProcessingIcon className="w-8 h-8 mx-auto text-gray-500 animate-spin" />
+                        <p className="mt-1 text-xs font-medium text-gray-700">生成中...</p>
+                    </div>
+                  ) : p.url ? (
+                    <img
+                      src={p.url}
+                      alt={p.name}
+                      className={`w-full h-full object-contain ${p.type === 'image' ? 'cursor-pointer' : ''}`}
+                      onClick={(e) => {
+                        if (p.type === 'image') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onPreviewClick(p);
+                        }
+=======
                   {p.type === 'image' && p.url ? (
                     <img
                       src={p.url}
@@ -95,6 +166,7 @@ const MultiFileUploader: React.FC<{
                         e.preventDefault();
                         e.stopPropagation();
                         onPreviewClick(p);
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
                       }}
                     />
                   ) : (
@@ -161,6 +233,106 @@ const TimeCardTable: React.FC<{
   );
 };
 
+<<<<<<< HEAD
+// --- String Similarity Function (Levenshtein Distance) ---
+const levenshteinDistance = (a: string, b: string): number => {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+};
+
+const findBestMatch = (name: string, roster: string[]): string | null => {
+    if (!roster || roster.length === 0 || !name) return null;
+
+    let bestMatch: string | null = null;
+    let minDistance = Infinity;
+    const similarityThreshold = 0.7; // 70% similarity required
+
+    // Normalize names by removing spaces
+    const normalizedName = name.replace(/\s+/g, '');
+
+    for (const rosterName of roster) {
+        const normalizedRosterName = rosterName.replace(/\s+/g, '');
+        const distance = levenshteinDistance(normalizedName, normalizedRosterName);
+        const similarity = 1 - distance / Math.max(normalizedName.length, normalizedRosterName.length);
+
+        if (similarity > similarityThreshold && distance < minDistance) {
+            minDistance = distance;
+            bestMatch = rosterName;
+        }
+    }
+    return bestMatch;
+};
+
+// Helper to convert Excel column letter (e.g., "B") to a zero-based index (1)
+const columnToIndex = (col: string): number => {
+    let index = 0;
+    const upperCol = col.toUpperCase();
+    for (let i = 0; i < upperCol.length; i++) {
+        index = index * 26 + upperCol.charCodeAt(i) - 'A'.charCodeAt(0) + 1;
+    }
+    return index - 1;
+};
+
+// --- Intelligent Sheet Name Matching ---
+const findMatchingSheetName = (fullName: string, sheetNames: string[]): string | null => {
+    if (!fullName || sheetNames.length === 0) {
+        return null;
+    }
+
+    const trimmedFullName = fullName.trim();
+    // Split by one or more spaces (half-width or full-width) and filter out empty strings
+    const nameParts = trimmedFullName.split(/[\s　]+/).filter(p => p);
+
+    if (nameParts.length === 0) {
+        return null;
+    }
+
+    // Normalize sheet names by trimming whitespace for reliable comparison
+    const normalizedSheetNames = sheetNames.map(s => s.trim());
+
+    // Priority 1: Exact match for the full name
+    let foundIndex = normalizedSheetNames.findIndex(sheet => sheet === trimmedFullName);
+    if (foundIndex > -1) return sheetNames[foundIndex];
+
+    // Priority 2: Match the first name part (e.g., "Miyazaki" in "Miyazaki Tomoko")
+    const firstNamePart = nameParts[0];
+    foundIndex = normalizedSheetNames.findIndex(sheet => sheet === firstNamePart);
+    if (foundIndex > -1) return sheetNames[foundIndex];
+    
+    // Priority 3: Match the last name part (only if there is more than one part)
+    if (nameParts.length > 1) {
+        const lastNamePart = nameParts[nameParts.length - 1];
+        foundIndex = normalizedSheetNames.findIndex(sheet => sheet === lastNamePart);
+        if (foundIndex > -1) return sheetNames[foundIndex];
+    }
+
+    return null; // No match found
+};
+
+
+=======
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
 const App = () => {
   const [previews, setPreviews] = useState<FilePreview[]>([]);
   const [timeCardData, setTimeCardData] = useState<TimeCardData[]>([]);
@@ -169,19 +341,47 @@ const App = () => {
   const [modalPreview, setModalPreview] = useState<FilePreview | null>(null);
   const [hasScrolledToResults, setHasScrolledToResults] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
+<<<<<<< HEAD
+  
+  // State for Auto-Update feature
+  const [updateStatus, setUpdateStatus] = useState<{ message: string; ready?: boolean } | null>(null);
+
+  // State for advanced features
+  const [roster, setRoster] = useState<string[]>([]);
+  const [rosterFile, setRosterFile] = useState<File | null>(null);
+  const [rosterSettings, setRosterSettings] = useState({
+    sheetName: '',
+    column: 'A',
+  });
+  const [excelTemplateFile, setExcelTemplateFile] = useState<File | null>(null);
+  const [excelTemplateData, setExcelTemplateData] = useState<ArrayBuffer | null>(null);
+  const [outputMode, setOutputMode] = useState<'new' | 'template'>('new');
+  const [templateSettings, setTemplateSettings] = useState({
+    dataStartCell: 'A1',
+  });
+
+  useEffect(() => {
+    return () => {
+      previews.forEach(p => {
+        if (p.url && p.type === 'image' && p.url.startsWith('blob:')) {
+=======
 
   useEffect(() => {
     // Cleanup object URLs when component unmounts or previews change
     return () => {
       previews.forEach(p => {
         if (p.url) {
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
           URL.revokeObjectURL(p.url);
         }
       });
     };
   }, [previews]);
 
+<<<<<<< HEAD
+=======
   // Scroll to results when data is available, but only once per processing.
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   useEffect(() => {
     if (timeCardData.length > 0 && !loading && !hasScrolledToResults) {
       resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -189,7 +389,10 @@ const App = () => {
     }
   }, [timeCardData, loading, hasScrolledToResults]);
 
+<<<<<<< HEAD
+=======
   // Handle Esc key to close modal
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -202,6 +405,64 @@ const App = () => {
     };
   }, []);
 
+<<<<<<< HEAD
+  // Effect for listening to auto-update status
+  useEffect(() => {
+    if (window.electronAPI?.onUpdateStatus) {
+      const removeListener = window.electronAPI.onUpdateStatus((status) => {
+        console.log('Update status received:', status);
+        setUpdateStatus(status);
+      });
+      // Cleanup on component unmount
+      return () => {
+        removeListener();
+      };
+    }
+  }, []);
+
+
+  const generatePdfThumbnail = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    
+    const desiredWidth = 200;
+    const viewport = page.getViewport({ scale: 1 });
+    const scale = desiredWidth / viewport.width;
+    const scaledViewport = page.getViewport({ scale });
+    
+    const canvas = document.createElement('canvas');
+    canvas.height = scaledViewport.height;
+    canvas.width = scaledViewport.width;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+        throw new Error('Could not get canvas context');
+    }
+    await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+    return canvas.toDataURL('image/png');
+  };
+
+  const handleFilesUpload = useCallback(async (files: FileList) => {
+    const newFiles = Array.from(files);
+    const newPreviews: FilePreview[] = newFiles.map(file => {
+      const type = file.type.startsWith('image/') ? 'image' : 'pdf';
+      return { file, type, url: type === 'image' ? URL.createObjectURL(file) : null, name: file.name, isLoading: type === 'pdf' };
+    });
+    setPreviews(prev => [...prev, ...newPreviews]);
+
+    newPreviews.forEach(async (p) => {
+        if (p.type === 'pdf') {
+            try {
+                const thumbnailUrl = await generatePdfThumbnail(p.file);
+                setPreviews(current => current.map(item => item.file === p.file ? { ...item, url: thumbnailUrl, isLoading: false } : item));
+            } catch (err) {
+                console.error("Failed to generate PDF thumbnail for", p.name, err);
+                setPreviews(current => current.map(item => item.file === p.file ? { ...item, isLoading: false } : item));
+            }
+        }
+    });
+=======
 
   const handleFilesUpload = useCallback((files: FileList) => {
     const newPreviews: FilePreview[] = Array.from(files).map(file => {
@@ -214,12 +475,17 @@ const App = () => {
       };
     });
     setPreviews(prev => [...prev, ...newPreviews]);
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   }, []);
 
   const handleRemoveFile = useCallback((indexToRemove: number) => {
     setPreviews(prev => {
       const fileToRemove = prev[indexToRemove];
+<<<<<<< HEAD
+      if (fileToRemove?.url && fileToRemove.type === 'image' && fileToRemove.url.startsWith('blob:')) {
+=======
       if (fileToRemove?.url) {
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
         URL.revokeObjectURL(fileToRemove.url);
       }
       return prev.filter((_, index) => index !== indexToRemove);
@@ -228,7 +494,11 @@ const App = () => {
 
   const handleClearAll = useCallback(() => {
     previews.forEach(p => {
+<<<<<<< HEAD
+        if (p.url && p.type === 'image' && p.url.startsWith('blob:')) {
+=======
         if (p.url) {
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
             URL.revokeObjectURL(p.url);
         }
     });
@@ -244,6 +514,75 @@ const App = () => {
     }
   }, []);
 
+<<<<<<< HEAD
+  // --- Handlers for New Features ---
+
+  const handleRosterSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setRosterSettings(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleRosterUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setRosterFile(file);
+    try {
+        const data = await readFileAsArrayBuffer(file);
+        const workbook = XLSX.read(data, { type: 'buffer' });
+        
+        const sheetName = rosterSettings.sheetName.trim() || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+            setError(`名簿ファイルにシート名「${sheetName}」が見つかりませんでした。`);
+            setRoster([]);
+            return;
+        }
+
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const colIndex = rosterSettings.column ? columnToIndex(rosterSettings.column) : 0;
+        
+        if (colIndex < 0) {
+            setError('列の指定が無効です。A, B, C...のように指定してください。');
+            setRoster([]);
+            return;
+        }
+
+        const names = json
+            .map(row => (row as any[])[colIndex])
+            .filter(name => typeof name === 'string' && name.trim() !== '');
+        
+        setRoster(names as string[]);
+        setError(null); // Clear previous errors if successful
+    } catch (err) {
+        setError('名簿ファイルの読み込みに失敗しました。');
+        console.error(err);
+        setRoster([]);
+    }
+  };
+
+
+  const handleTemplateUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setExcelTemplateFile(file);
+    try {
+        const data = await readFileAsArrayBuffer(file);
+        setExcelTemplateData(data);
+    } catch (err) {
+        setError('Excelテンプレートの読み込みに失敗しました。');
+        console.error(err);
+    }
+  };
+
+  const handleTemplateSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setTemplateSettings(prev => ({ ...prev, [name]: value.trim() }));
+  };
+
+=======
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   const handleProcess = async () => {
     if (previews.length === 0) return;
     setLoading(true);
@@ -261,6 +600,15 @@ const App = () => {
         allExtractedData.push(...result);
       }
 
+<<<<<<< HEAD
+      const sanitizedAndValidatedData = allExtractedData.map(card => {
+          if (!card || typeof card !== 'object' || !card.headers || !card.data) return null;
+          const sanitizedHeaders = Array.isArray(card.headers) ? card.headers.map(h => String(h ?? "")) : [];
+          const headerCount = sanitizedHeaders.length;
+          const sanitizedData = Array.isArray(card.data) ? card.data.map(row => {
+              if (!Array.isArray(row)) return null;
+              let sanitizedRow = row.map(cell => String(cell ?? ""));
+=======
       // Sanitize and validate the data from the API to prevent rendering errors.
       const sanitizedAndValidatedData = allExtractedData
         .map(card => {
@@ -279,12 +627,32 @@ const App = () => {
               let sanitizedRow = row.map(cell => String(cell ?? ""));
 
               // Adjust row length to match header count
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
               if (sanitizedRow.length < headerCount) {
                 sanitizedRow = [...sanitizedRow, ...Array(headerCount - sanitizedRow.length).fill("")];
               } else if (sanitizedRow.length > headerCount) {
                 sanitizedRow = sanitizedRow.slice(0, headerCount);
               }
               return sanitizedRow;
+<<<<<<< HEAD
+            }).filter((row): row is string[] => row !== null) : [];
+
+          const sanitizedCard: TimeCardData = {
+            title: { yearMonth: String(card.title?.yearMonth ?? ""), name: String(card.title?.name ?? "") },
+            headers: sanitizedHeaders, data: sanitizedData
+          };
+          
+          // --- Roster Matching Logic ---
+          if (roster.length > 0) {
+              const bestMatch = findBestMatch(sanitizedCard.title.name, roster);
+              if (bestMatch && bestMatch !== sanitizedCard.title.name) {
+                  sanitizedCard.title.name = bestMatch;
+                  sanitizedCard.nameCorrected = true;
+              }
+          }
+          return sanitizedCard;
+        }).filter((card): card is TimeCardData => card !== null);
+=======
             })
             .filter((row): row is string[] => row !== null)
           : [];
@@ -300,26 +668,37 @@ const App = () => {
           return sanitizedCard;
         })
         .filter((card): card is TimeCardData => card !== null);
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
 
       if (allExtractedData.length > 0 && sanitizedAndValidatedData.length === 0) {
         throw new Error("AIは応答しましたが、期待されるデータ形式と一致しませんでした。ファイルがタイムカード形式であることを確認してください。");
       }
 
+<<<<<<< HEAD
+=======
       // Merge data for the same person and month using the sanitized data
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
       const mergedData = new Map<string, TimeCardData>();
       sanitizedAndValidatedData.forEach(card => {
         const key = `${card.title.name.replace(/\s+/g, '')}-${card.title.yearMonth.replace(/\s+/g, '')}`;
         if (mergedData.has(key)) {
           const existingCard = mergedData.get(key)!;
           existingCard.data.push(...card.data);
+<<<<<<< HEAD
+=======
           // Sort by the value in the first column, assuming it's the date
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
           existingCard.data.sort((a, b) => {
               const dateA = parseInt(a[0]?.trim(), 10) || 0;
               const dateB = parseInt(b[0]?.trim(), 10) || 0;
               return dateA - dateB;
           });
         } else {
+<<<<<<< HEAD
+          mergedData.set(key, JSON.parse(JSON.stringify(card)));
+=======
           mergedData.set(key, JSON.parse(JSON.stringify(card))); // Deep copy
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
         }
       });
       setTimeCardData(Array.from(mergedData.values()));
@@ -347,12 +726,69 @@ const App = () => {
       const newData = JSON.parse(JSON.stringify(prevData));
       if (newData[cardIndex] && newData[cardIndex].title) {
         newData[cardIndex].title[field] = value;
+<<<<<<< HEAD
+        // If user manually edits name, remove the corrected flag
+        if (field === 'name') {
+            newData[cardIndex].nameCorrected = false;
+        }
+=======
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
       }
       return newData;
     });
   };
   
   const handleDownloadSingleCard = (card: TimeCardData) => {
+<<<<<<< HEAD
+    const fileNameBase = `${card.title.name.replace(/\s+/g, '')}_${card.title.yearMonth.replace(/\s+/g, '')}`.replace(/[\\/*?:"<>|]/g, '_') || 'TimeCard';
+
+    if (outputMode === 'template') {
+        if (!excelTemplateData || !templateSettings.dataStartCell) {
+            setError('テンプレートファイルとデータ開始セルを指定してください。');
+            return;
+        }
+        try {
+            const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
+            const targetSheetName = findMatchingSheetName(card.title.name, templateWb.SheetNames);
+            
+            if (!targetSheetName) {
+                setError(`テンプレートファイルに、氏名「${card.title.name}」に一致するシート（フルネーム/姓/名）が見つかりませんでした。`);
+                return;
+            }
+
+            // Create a new workbook to avoid side-effects and preserve the original template.
+            const newWb = XLSX.utils.book_new();
+
+            // Copy all sheets from the template to the new workbook, preserving their names.
+            templateWb.SheetNames.forEach(sheetName => {
+                const originalSheet = templateWb.Sheets[sheetName];
+                // Deep copy the sheet object.
+                const newSheet = JSON.parse(JSON.stringify(originalSheet));
+
+                // If this is the sheet we are targeting, write data into the copied sheet.
+                if (sheetName === targetSheetName) {
+                    XLSX.utils.sheet_add_aoa(newSheet, card.data, { origin: templateSettings.dataStartCell });
+                }
+                
+                // Append the sheet (original or modified) to the new workbook.
+                XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
+            });
+
+            XLSX.writeFile(newWb, `${fileNameBase}_template_filled.xlsx`);
+            setError(null); // Clear error on success
+        } catch (err: any) {
+            setError(`テンプレートへの書き込み中にエラーが発生しました: ${err.message}`);
+            console.error(err);
+        }
+    } else { // 'new' mode
+        const wb = XLSX.utils.book_new();
+        const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\\/*?:"<>|]/g, '').substring(0, 31);
+        const ws_data = [['年月', card.title.yearMonth], ['氏名', card.title.name], [], card.headers, ...card.data];
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        XLSX.writeFile(wb, `${fileNameBase}.xlsx`);
+    }
+=======
     const wb = XLSX.utils.book_new();
     const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\\/*?:"<>|]/g, '').substring(0, 31);
     const ws_data = [
@@ -370,11 +806,77 @@ const App = () => {
     const fileName = (name && yearMonth) ? `${name}_${yearMonth}.xlsx` : 'TimeCard.xlsx';
     
     XLSX.writeFile(wb, fileName);
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   };
 
   const handleDownloadAll = () => {
     if (timeCardData.length === 0) return;
 
+<<<<<<< HEAD
+    if (outputMode === 'template') {
+        if (!excelTemplateData || !excelTemplateFile || !templateSettings.dataStartCell) {
+            setError('テンプレートファイルとデータ開始セルを指定してください。');
+            return;
+        }
+        try {
+            const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
+            const newWb = XLSX.utils.book_new(); // Create a brand new workbook to write to.
+            const unmatchedNames: string[] = [];
+
+            // Create a map of which data goes into which original sheet name.
+            const dataBySheet = new Map<string, string[][]>();
+            timeCardData.forEach(card => {
+                const targetSheetName = findMatchingSheetName(card.title.name, templateWb.SheetNames);
+                if (targetSheetName) {
+                    dataBySheet.set(targetSheetName, card.data);
+                } else {
+                    unmatchedNames.push(card.title.name);
+                }
+            });
+
+            // Build the new workbook by copying all original sheets and adding data where needed.
+            templateWb.SheetNames.forEach(sheetName => {
+                const originalSheet = templateWb.Sheets[sheetName];
+                // Deep copy to prevent any modification of the original object.
+                const newSheet = JSON.parse(JSON.stringify(originalSheet));
+
+                // If this sheet has data to be written, add it.
+                if (dataBySheet.has(sheetName)) {
+                    const dataToWrite = dataBySheet.get(sheetName)!;
+                    XLSX.utils.sheet_add_aoa(newSheet, dataToWrite, { origin: templateSettings.dataStartCell });
+                }
+
+                // Append the sheet to the new workbook, preserving the original name.
+                XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
+            });
+
+            const outputFileName = `${excelTemplateFile.name.replace(/\.(xlsx|xls)$/, '')}_filled.xlsx`;
+            XLSX.writeFile(newWb, outputFileName);
+            
+            if (unmatchedNames.length > 0) {
+                setError(`転記が完了しましたが、一部の氏名のシートが見つかりませんでした。\n未転記: ${unmatchedNames.join(', ')}`);
+            } else {
+                setError(null); // Clear previous errors on full success
+            }
+        } catch (err: any) {
+            setError(`テンプレートへの一括書き込み中にエラーが発生しました: ${err.message}`);
+            console.error(err);
+        }
+
+    } else { // 'new' mode
+        const wb = XLSX.utils.book_new();
+        timeCardData.forEach(card => {
+          const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\\/*?:"<>|]/g, '').substring(0, 31);
+          const ws_data = [['年月', card.title.yearMonth], ['氏名', card.title.name], [], card.headers, ...card.data];
+          const ws = XLSX.utils.aoa_to_sheet(ws_data);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        });
+        XLSX.writeFile(wb, 'TimeCards_All.xlsx');
+    }
+  };
+
+
+=======
     const wb = XLSX.utils.book_new();
     timeCardData.forEach(card => {
       const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\\/*?:"<>|]/g, '').substring(0, 31);
@@ -393,6 +895,7 @@ const App = () => {
     XLSX.writeFile(wb, 'TimeCards.xlsx');
   };
 
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-6xl mx-auto">
@@ -406,6 +909,75 @@ const App = () => {
         </header>
 
         <main className="space-y-6">
+<<<<<<< HEAD
+          <div className="p-6 bg-white rounded-lg shadow-md space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-700 mb-4">1. ファイルをアップロード</h2>
+              <MultiFileUploader onFilesUpload={handleFilesUpload} previews={previews} onRemoveFile={handleRemoveFile} onClearAll={handleClearAll} onPreviewClick={handlePreviewClick} />
+            </div>
+
+            {/* --- Advanced Settings Sections --- */}
+            <div className='space-y-4'>
+                <details className="group rounded-lg bg-gray-50 p-4 transition-all duration-300 open:ring-1 open:ring-gray-200">
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold text-gray-700">
+                        <div className="flex items-center gap-3">
+                            <UsersIcon className="h-6 w-6 text-gray-500" />
+                            <span>氏名読み取り精度向上 (オプション)</span>
+                        </div>
+                        <ChevronDownIcon className="h-5 w-5 text-gray-500 transition-transform duration-300 group-open:rotate-180" />
+                    </summary>
+                    <div className="mt-4 border-t pt-4 space-y-3">
+                        <p className="text-sm text-gray-600">氏名が記載されたExcelファイル（名簿）をアップロードすると、OCRが読み取った氏名を自動で補正します。名簿のシート名と氏名が記載されている列を指定してください。</p>
+                        <div className="flex items-center gap-4">
+                            <input type="file" id="roster-upload" className="hidden" accept=".xlsx, .xls" onChange={handleRosterUpload} />
+                            <label htmlFor="roster-upload" className="cursor-pointer rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">名簿ファイルを選択</label>
+                            {rosterFile && <span className="text-sm text-gray-700">{rosterFile.name} ({roster.length}名)</span>}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             <div><label htmlFor="rosterSheetName" className="block text-sm font-medium leading-6 text-gray-900">シート名 (空欄で最初のシート)</label><input type="text" name="sheetName" id="rosterSheetName" value={rosterSettings.sheetName} onChange={handleRosterSettingsChange} className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 bg-white shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6" placeholder="例: 社員一覧" /></div>
+                             <div><label htmlFor="rosterColumn" className="block text-sm font-medium leading-6 text-gray-900">氏名が記載されている列</label><input type="text" name="column" id="rosterColumn" value={rosterSettings.column} onChange={handleRosterSettingsChange} className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 bg-white shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6" placeholder="例: B" /></div>
+                        </div>
+                    </div>
+                </details>
+
+                <details className="group rounded-lg bg-gray-50 p-4 transition-all duration-300 open:ring-1 open:ring-gray-200">
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold text-gray-700">
+                        <div className="flex items-center gap-3">
+                            <TableCellsIcon className="h-6 w-6 text-gray-500" />
+                            <span>Excel出力設定</span>
+                        </div>
+                        <ChevronDownIcon className="h-5 w-5 text-gray-500 transition-transform duration-300 group-open:rotate-180" />
+                    </summary>
+                    <div className="mt-4 space-y-4 border-t pt-4">
+                        <fieldset>
+                            <legend className="text-sm font-medium text-gray-900">出力方法を選択してください</legend>
+                            <div className="mt-2 flex gap-8">
+                                <div className="flex items-center gap-x-3"><input id="output-new" name="output-mode" type="radio" value="new" checked={outputMode === 'new'} onChange={() => setOutputMode('new')} className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-600" /><label htmlFor="output-new" className="block text-sm font-medium leading-6 text-gray-900">新規Excelファイルを作成</label></div>
+                                <div className="flex items-center gap-x-3"><input id="output-template" name="output-mode" type="radio" value="template" checked={outputMode === 'template'} onChange={() => setOutputMode('template')} className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-600" /><label htmlFor="output-template" className="block text-sm font-medium leading-6 text-gray-900">既存のExcelファイルに転記</label></div>
+                            </div>
+                        </fieldset>
+
+                        {outputMode === 'template' && (
+                            <div className="space-y-4 rounded-md border bg-white p-4">
+                                <p className="text-sm text-gray-600">テンプレートモードでは、OCRで読み取った氏名と一致する名前のシートに、勤怠データ（ヘッダーを除く）のみを転記します。データの書き込みを開始するセルを指定してください。</p>
+                                <div>
+                                    <label htmlFor="template-upload" className="block text-sm font-medium text-gray-700 mb-1">テンプレートExcelファイル</label>
+                                    <div className="flex items-center gap-4">
+                                        <input type="file" id="template-upload" className="hidden" accept=".xlsx, .xls" onChange={handleTemplateUpload} />
+                                        <label htmlFor="template-upload" className="cursor-pointer rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">ファイルを選択</label>
+                                        {excelTemplateFile && <span className="text-sm text-gray-700">{excelTemplateFile.name}</span>}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                                     <div><label htmlFor="dataStartCell" className="block text-sm font-medium leading-6 text-gray-900">データ書き込み開始セル</label><input type="text" name="dataStartCell" id="dataStartCell" value={templateSettings.dataStartCell} onChange={handleTemplateSettingsChange} className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 bg-white shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6" placeholder="例: C5" /></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </details>
+            </div>
+
+=======
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-700 mb-4">1. ファイルをアップロード</h2>
             <MultiFileUploader 
@@ -415,6 +987,7 @@ const App = () => {
               onClearAll={handleClearAll}
               onPreviewClick={handlePreviewClick}
             />
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
           </div>
           
           <div className="text-center">
@@ -423,12 +996,16 @@ const App = () => {
               disabled={loading || previews.length === 0}
               className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
+<<<<<<< HEAD
+              {loading ? ( <> <ProcessingIcon className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" /> 処理中... </> ) : '2. 処理を開始'}
+=======
               {loading ? (
                 <>
                   <ProcessingIcon className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
                   処理中...
                 </>
               ) : '2. 処理を開始'}
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
             </button>
           </div>
           
@@ -445,10 +1022,17 @@ const App = () => {
                 <h2 className="text-lg font-semibold text-gray-700">3. 結果の確認と修正</h2>
                 <button
                   onClick={handleDownloadAll}
+<<<<<<< HEAD
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <DownloadIcon className="-ml-1 mr-2 h-5 w-5" />
+                  {outputMode === 'template' ? 'すべてテンプレートに転記' : 'すべてExcel形式でダウンロード'}
+=======
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
                 >
                   <DownloadIcon className="-ml-1 mr-2 h-5 w-5" />
                   すべてExcel形式でダウンロード
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
                 </button>
               </div>
               <div className="space-y-8">
@@ -456,6 +1040,16 @@ const App = () => {
                   <div key={index} className="border-t pt-6 first:border-t-0 first:pt-0">
                     <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                         <div className="flex items-center gap-2 text-xl font-bold text-gray-800 flex-grow mr-4 min-w-[200px]">
+<<<<<<< HEAD
+                            <input type="text" value={card.title.yearMonth} onChange={(e) => handleTitleChange(index, 'yearMonth', e.target.value)} className="p-1 border border-transparent hover:border-gray-300 focus:border-blue-500 rounded-md bg-transparent w-full sm:w-auto" aria-label="Edit Year and Month" />
+                            <span className="text-gray-500">-</span>
+                            <div className="flex items-center gap-1.5 flex-grow">
+                                {card.nameCorrected && <SparklesIcon className="h-5 w-5 text-blue-500 flex-shrink-0" title="名簿により自動修正" />}
+                                <input type="text" value={card.title.name} onChange={(e) => handleTitleChange(index, 'name', e.target.value)} className="p-1 border border-transparent hover:border-gray-300 focus:border-blue-500 rounded-md bg-transparent w-full" aria-label="Edit Name" />
+                            </div>
+                        </div>
+                        <button onClick={() => handleDownloadSingleCard(card)} className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 flex-shrink-0" aria-label={`${card.title.name}のタイムカードをダウンロード`}>
+=======
                             <input
                                 type="text"
                                 value={card.title.yearMonth}
@@ -477,6 +1071,7 @@ const App = () => {
                             className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 flex-shrink-0"
                             aria-label={`${card.title.name}のタイムカードをダウンロード`}
                         >
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
                             <DownloadIcon className="-ml-0.5 mr-2 h-4 w-4" />
                             このカードをダウンロード
                         </button>
@@ -489,12 +1084,28 @@ const App = () => {
           )}
         </main>
         
+<<<<<<< HEAD
+        <footer className="text-center mt-12 py-6 border-t border-gray-200 space-y-4">
+          <a href="mailto:imai_f@alcs.co.jp?subject=%E3%82%BF%E3%82%A4%E3%83%A0%E3%82%AB%E3%83¼%E3%83%89OCR%E3%82%A2%E3%83%97%E3%83%AA%E3%81%AE%E3%83%95%E3%82%A3%E3%83¼%E3%83%89%E3%83%90%E3%83%83%E3%82%AF" className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors group">
+            <MailIcon className="w-5 h-5 mr-2" />
+            <span className="group-hover:underline">フィードバック・ご要望はこちら</span>
+          </a>
+          <p className="text-gray-500 text-sm">Powered by Google Gemini API</p>
+=======
         <footer className="text-center mt-12 text-gray-500 text-sm">
           <p>Powered by Google Gemini API</p>
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
         </footer>
       </div>
 
       {modalPreview && (
+<<<<<<< HEAD
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4" onClick={() => setModalPreview(null)} role="dialog" aria-modal="true" aria-labelledby="image-preview-title">
+          <div className="relative" onClick={e => e.stopPropagation()}>
+            <h2 id="image-preview-title" className="sr-only">Image Preview: {modalPreview.name}</h2>
+            <img src={modalPreview.url!} alt={modalPreview.name} className="max-w-[90vw] max-h-[90vh] object-contain" />
+            <button onClick={() => setModalPreview(null)} className="absolute -top-2 -right-2 sm:top-2 sm:right-2 bg-white text-black rounded-full p-1 shadow-lg" aria-label="Close image preview">
+=======
         <div
           className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4"
           onClick={() => setModalPreview(null)}
@@ -510,13 +1121,29 @@ const App = () => {
               className="absolute -top-2 -right-2 sm:top-2 sm:right-2 bg-white text-black rounded-full p-1 shadow-lg"
               aria-label="Close image preview"
             >
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
               <CloseIcon className="w-6 h-6" />
             </button>
           </div>
         </div>
       )}
+<<<<<<< HEAD
+
+      {updateStatus && (
+        <UpdateNotification
+          message={updateStatus.message}
+          isReady={updateStatus.ready}
+          onRestart={() => window.electronAPI.restartApp()}
+        />
+      )}
+=======
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
     </div>
   );
 };
 
+<<<<<<< HEAD
 export default App;
+=======
+export default App;
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d

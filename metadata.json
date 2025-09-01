@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
+  "name": "タイムカード OCR to Excel",
+=======
   "name": "Copy of タイムカード OCR to Excel",
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
   "description": "タイムカード画像をOCRで読み取り、データを処理し、必要に応じて修正を加えてからExcelファイルとしてエクスポートするアプリケーションです。",
   "requestFramePermissions": []
 }

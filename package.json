@@ -1,4 +1,77 @@
 {
+<<<<<<< HEAD
+  "name": "timecard-ocr-to-excel",
+  "private": true,
+  "version": "1.0.0",
+  "description": "タイムカード画像をOCRで読み取り、データを処理し、Excelファイルとしてエクスポートするアプリケーションです。",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder"
+  },
+  "keywords": [],
+  "author": "ALCS",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^1.16.0",
+    "electron-log": "^5.1.5",
+    "electron-updater": "^6.2.1",
+    "pdfjs-dist": "^5.4.54",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {
+    "@types/xlsx": "^0.0.36",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.19",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5"
+  },
+  "build": {
+    "appId": "com.alcs.timecardocr",
+    "productName": "タイムカード OCR to Excel",
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "imaialcs",
+      "repo": "time-card_OCR_to_Excel"
+    },
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "forceCodeSigning": false
+  }
+}
+=======
   "name": "copy-of-タイムカード-ocr-to-excel",
   "private": true,
   "version": "0.0.0",
@@ -19,3 +92,4 @@
     "vite": "^6.2.0"
   }
 }
+>>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
