@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -9,30 +9,7 @@ export default defineConfig({
   base: './',
   build: {
     rollupOptions: {
-      // importmapで読み込まれるモジュールはバンドル対象外とする
-      external: [
-        'xlsx',
-        'pdfjs-dist'
-      ],
+      // No longer externalizing any modules. All will be bundled.
     },
   },
 })
-=======
-import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
-
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
-    return {
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
-        }
-      }
-    };
-});
->>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d

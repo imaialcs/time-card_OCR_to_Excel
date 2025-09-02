@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "name": "timecard-ocr-to-excel",
   "private": true,
   "version": "1.0.0",
@@ -24,6 +23,8 @@
     "xlsx": "0.18.5"
   },
   "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
     "@types/xlsx": "^0.0.36",
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.19",
@@ -44,8 +45,8 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "imaialcs",
-      "repo": "time-card_OCR_to_Excel"
+      "owner": "your-github-username",
+      "repo": "your-repo-name"
     },
     "directories": {
       "output": "release",
@@ -71,25 +72,3 @@
     "forceCodeSigning": false
   }
 }
-=======
-  "name": "copy-of-タイムカード-ocr-to-excel",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "@google/genai": "^1.15.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
-}
->>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d

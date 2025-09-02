@@ -5,3 +5,9 @@
 
 declare module 'xlsx';
 declare module 'pdfjs-dist';
+
+// Add type support for Vite's `?url` asset imports
+declare module '*?url' {
+  const src: string;
+  export default src;
+}
