@@ -1,13 +1,5 @@
 // This file is used to provide ambient type declarations for modules
-// that are imported via CDN in index.html (importmap) and have no
-// corresponding type definitions installed in node_modules.
-// This silences TypeScript errors during the build process (tsc).
+// that do not have their own type definitions included.
 
 declare module 'xlsx';
 declare module 'pdfjs-dist';
-
-// Add type support for Vite's `?url` asset imports
-declare module '*?url' {
-  const src: string;
-  export default src;
-}

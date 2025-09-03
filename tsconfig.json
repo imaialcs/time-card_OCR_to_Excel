@@ -20,7 +20,9 @@
     "**/*.ts",
     "**/*.tsx",
     "./electron.d.ts",
-    "./declarations.d.ts"
+    "./declarations.d.ts",
+    "vite-env.d.ts",
+    "vite.electron.config.ts"
   ],
-  "exclude": ["node_modules", "dist", "release", "main.js", "preload.js"]
+  "exclude": ["node_modules", "dist", "dist-electron", "release", "main.js", "preload.js"]
 }

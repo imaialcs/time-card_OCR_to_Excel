@@ -4,31 +4,24 @@ import { TimeCardData } from '../types';
 // The type definition for `window.electronAPI` is now in `electron.d.ts`
 // which is included by the TypeScript compiler.
 
+// Helper function to get API key from the main process in a secure way.
 const getApiKey = async (): Promise<string> => {
-    let apiKey: string | null | undefined = null;
-    // Check if running in Electron by looking for the preload script's API
-    if (window.electronAPI && typeof window.electronAPI.getApiKey === 'function') {
-        apiKey = await window.electronAPI.getApiKey();
-    } else {
-        // Fallback for web preview environment, which should have process.env.API_KEY
-        console.warn("Electron API not found. Using API_KEY from web preview environment.");
-        apiKey = process.env.API_KEY;
+  // `electronAPI` is exposed by the preload script in Electron environments.
+  if (window.electronAPI?.getApiKey) {
+    const apiKey = await window.electronAPI.getApiKey();
+    if (apiKey) {
+      return apiKey;
     }
-
-    if (!apiKey) {
-        const errorMessage = window.electronAPI
-            ? "APIキーがElectronのメインプロセスで設定されていません。'API_KEY'環境変数が設定されているか確認してください。"
-            : "APIキーが見つかりません。Webプレビュー環境で'API_KEY'環境変数が設定されているか確認してください。";
-        throw new Error(errorMessage);
-    }
-    return apiKey;
+  }
+  // This error will be thrown if the app is not running in Electron
+  // or if the API key is not set in the main process's environment.
+  throw new Error("APIキーが見つかりません。'API_KEY'環境変数が設定されているか確認してください。");
 };
 
 export const processTimeCardFile = async (
   file: { base64: string; mimeType: string }
 ): Promise<TimeCardData[]> => {
   const apiKey = await getApiKey();
-
   const ai = new GoogleGenAI({ apiKey });
 
   const filePart = {

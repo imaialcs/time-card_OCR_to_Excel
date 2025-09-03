@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // レンダラープロセス（UI側）の `window` オブジェクトに、安全なAPIを公開します。
 contextBridge.exposeInMainWorld('electronAPI', {
-  // `getApiKey`という関数を公開し、メインプロセスに 'get-api-key' というメッセージを送信して結果を受け取ります。
+  // --- Secure API Key Retrieval ---
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
 
   // --- Auto-update API ---
@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('update-status', listener);
   },
   restartApp: () => ipcRenderer.send('restart-app'),
+
+  setMenu: (template) => ipcRenderer.invoke('set-menu', template)
 });

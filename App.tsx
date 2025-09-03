@@ -6,11 +6,15 @@ import { UpdateNotification } from './components/UpdateNotification';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Viteの機能を使って、バンドルされたPDF.jsワーカーへのパスを動的に取得します。
-// これにより、オフラインでもPDFのプレビューが機能します。
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-
+// The application uses an import map to load pdfjs-dist from a CDN. This makes
+// Vite's "?url" import suffix incompatible for resolving the worker path, which
+// was leading to a module loading error.
+// To fix this, we construct the worker URL dynamically using the version from the
+// loaded pdfjs-dist library itself and the known CDN path. This is a more
+// reliable method for this specific import-map-based setup.
+if (pdfjsLib.version) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://aistudiocdn.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
+}
 
 interface FilePreview {
   file: File;
@@ -298,7 +302,8 @@ const App = () => {
   const resultsRef = useRef<HTMLDivElement>(null);
   
   // State for Auto-Update feature
-  const [updateStatus, setUpdateStatus] = useState<{ message: string; ready?: boolean } | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<{ message: string; ready?: boolean; transient?: boolean } | null>(null);
+  const updateTimeoutRef = useRef<number | null>(null);
 
   // State for advanced features
   const [roster, setRoster] = useState<string[]>([]);
@@ -348,11 +353,31 @@ const App = () => {
     if (window.electronAPI?.onUpdateStatus) {
       const removeListener = window.electronAPI.onUpdateStatus((status) => {
         console.log('Update status received:', status);
+        
+        // Clear any existing timeout to prevent the message from
+        // disappearing prematurely if a new status arrives.
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
+
         setUpdateStatus(status);
+
+        // If the status message is marked as transient (e.g., "You are up to date"),
+        // set a timer to automatically hide it after a few seconds.
+        if (status.transient) {
+          updateTimeoutRef.current = window.setTimeout(() => {
+            setUpdateStatus(null);
+            updateTimeoutRef.current = null;
+          }, 5000); // Hide after 5 seconds
+        }
       });
-      // Cleanup on component unmount
+      
+      // Cleanup function for when the component unmounts.
       return () => {
         removeListener();
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+        }
       };
     }
   }, []);
@@ -850,33 +875,53 @@ const App = () => {
         </main>
         
         <footer className="text-center mt-12 py-6 border-t border-gray-200 space-y-4">
-          <a href="mailto:imai_f@alcs.co.jp?subject=%E3%82%BF%E3%82%A4%E3%83%A0%E3%82%AB%E3%83%BC%E3%83%89OCR%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" className="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center gap-1">
-            <MailIcon className="h-4 w-4" />
-            お問い合わせ
+          <a href="mailto:imai_f@alcs.co.jp?subject=%E3%82%BF%E3%82%A4%E3%83%A0%E3%82%AB%E3%83¼%E3%83%89%20OCR%20to%20Excel%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" className="inline-flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-blue-800 hover:underline">
+            <MailIcon className="h-5 w-5" />
+            <span>フィードバックや不具合報告はこちら</span>
           </a>
-          <div className="text-xs text-gray-400">
-            アルクス株式会社 (ALCS Co., Ltd.)
-          </div>
         </footer>
       </div>
+
       {modalPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={() => setModalPreview(null)}>
-          <img src={modalPreview.url!} alt={modalPreview.name} className="max-w-[90vw] max-h-[90vh]" />
-          <button onClick={() => setModalPreview(null)} className="absolute top-4 right-4 text-white">
-            <CloseIcon className="w-8 h-8" />
-          </button>
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4"
+          onClick={() => setModalPreview(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="image-preview-title"
+        >
+          <div
+            className="relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="image-preview-title" className="sr-only">
+              Image Preview: {modalPreview.name}
+            </h2>
+            <img
+              src={modalPreview.url!}
+              alt={`Preview of ${modalPreview.name}`}
+              className="block max-w-[90vw] max-h-[90vh] object-contain shadow-lg rounded-lg"
+            />
+            <button
+              onClick={() => setModalPreview(null)}
+              className="absolute top-0 right-0 -m-3 p-2 text-white bg-black bg-opacity-50 rounded-full hover:bg-opacity-75 transition-colors"
+              aria-label="Close image preview"
+            >
+              <CloseIcon className="w-6 h-6" />
+            </button>
+          </div>
         </div>
       )}
+
       {updateStatus && (
-        <UpdateNotification 
-          message={updateStatus.message} 
-          isReady={updateStatus.ready} 
-          onRestart={() => window.electronAPI.restartApp()} 
+        <UpdateNotification
+          message={updateStatus.message}
+          isReady={updateStatus.ready}
+          onRestart={() => window.electronAPI?.restartApp()}
         />
       )}
     </div>
   );
 };
 
-// Fix: Add default export to the App component
 export default App;
