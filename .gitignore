@@ -33,3 +33,6 @@ dist-ssr
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Electron Builder output
+build_output/

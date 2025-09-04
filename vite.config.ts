@@ -11,7 +11,12 @@ export default defineConfig({
   build: {
     outDir: 'dist', // Explicitly set renderer output dir
     rollupOptions: {
-      // No longer externalizing any modules. All will be bundled.
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          xlsx: ['xlsx'],
+        },
+      },
     },
   },
 })

@@ -7,7 +7,7 @@ interface UpdateNotificationProps {
   onRestart: () => void;
 }
 
-export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ message, isReady, onRestart }) => {
+const UpdateNotification: React.FC<UpdateNotificationProps> = ({ message, isReady, onRestart }) => {
   return (
     <div
       className="fixed bottom-4 right-4 z-50 w-full max-w-sm rounded-lg bg-white p-4 text-gray-800 shadow-2xl ring-1 ring-black ring-opacity-5"
@@ -40,3 +40,5 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ message,
     </div>
   );
 };
+
+export default UpdateNotification;

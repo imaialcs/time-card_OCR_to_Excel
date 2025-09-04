@@ -35,6 +35,13 @@ export const FileIcon: React.FC<IconProps> = ({ className, title, ...props }) =>
   </svg>
 );
 
+export const DocumentTextIcon: React.FC<IconProps> = ({ className, title, ...props }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor" {...props}>
+    {title && <title>{title}</title>}
+    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111 2.586L15.414 7A1 1 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+  </svg>
+);
+
 export const CloseIcon: React.FC<IconProps> = ({ className, title, ...props }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
     {title && <title>{title}</title>}

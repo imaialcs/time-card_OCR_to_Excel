@@ -1,24 +1,24 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 文書OCR
 
-# Run and deploy your AI Studio app
+会計事務所向けの文書OCRアプリケーションです。請求書、領収書、通帳、勤怠表などの画像をOCRで読み取り、データを処理し、Excelファイルとしてエクスポートします。
 
-This contains everything you need to run your app locally.
+## 主な機能
 
-<<<<<<< HEAD
-View your app in AI Studio: https://ai.studio/apps/drive/1HFW5W9i_60H4ltzITRI2GBHSNtOleCwm
-=======
-View your app in AI Studio: https://ai.studio/apps/drive/1NhOiRCP__t_oXSFwMrTeY4EAk78gBp9u
->>>>>>> 7b386db226a4259bb4a04124e710d90651f0b88d
+- **OCR処理:** 画像やPDFファイルから文字を読み取ります。
+- **データ形式の自動判別:** 読み取った内容が表形式か、一般的な文章かを自動で判別します。
+  - **表形式の場合:** データを抽出し、修正可能なテーブルとして表示します。
+  - **文章の場合:** テキストをそのまま書き起こして表示します。
+- **Excelエクスポート:** 抽出したデータをExcelファイル（.xlsx）またはテキストファイル（.txt）としてダウンロードできます。
+- **テンプレート機能:** 既存のExcelフォーマットにデータを転記することも可能です。
+- **氏名補正機能:** 社員名簿などをアップロードしておくことで、OCRが読み取った氏名を自動で補正します。
 
-## Run Locally
+## 実行方法
 
-**Prerequisites:**  Node.js
+**前提条件:** Node.js
 
-
-1. Install dependencies:
+1. 依存関係をインストール:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. `.env` ファイルに `API_KEY` を設定します。
+3. アプリケーションを実行:
+   `npm run dist`
+   `npm start`

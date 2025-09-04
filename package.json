@@ -1,14 +1,16 @@
 {
-  "name": "timecard-ocr-to-excel",
+  "name": "alcs-document-ocr",
   "private": true,
-  "version": "1.0.2",
-  "description": "タイムカード画像をOCRで読み取り、データを処理し、Excelファイルとしてエクスポートするアプリケーションです。",
+  "version": "1.0.3",
+  "description": "会計事務所向けの文書OCRアプリケーションです。請求書、領収書、通帳などの画像をOCRで読み取り、データを処理し、Excelファイルとしてエクスポートします。",
+  "author": "alcs",
   "main": "main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "dist": "npm run build && electron-builder",
-    "start": "electron ."
+    "start": "electron .",
+    "preinstall": "npx rimraf node_modules/.cache/electron-builder"
   },
   "dependencies": {
     "@google/genai": "^1.16.0",
@@ -27,7 +29,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
-    "electron": "^28.3.3",
+    "electron": "^38.0.0",
     "electron-builder": "^24.13.3",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
@@ -35,14 +37,18 @@
     "vite": "^5.2.11"
   },
   "build": {
-    "asar": false,
-    "appId": "com.alcs.timecardocr",
-    "productName": "タイムカード OCR to Excel",
+    "asar": true,
+    "appId": "com.alcs.documentocr",
+    "productName": "ALCS文書OCR",
+    "directories": {
+      "output": "build_output"
+    },
     "files": [
       "dist/",
       "main.js",
       "preload.js",
       "package.json",
+      "icon.ico",
       ".env"
     ],
     "extraResources": [
@@ -53,7 +59,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "icon.ico",
+      "icon": "./icon.ico",
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -66,6 +72,3 @@
     "buildDependenciesFromSource": true
   }
 }
-
-
-

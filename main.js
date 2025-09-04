@@ -82,7 +82,7 @@ const template = [
           const { dialog } = require('electron');
           await dialog.showMessageBox({
             title: 'バージョン情報',
-            message: 'タイムカード OCR to Excel',
+            message: '文書OCR',
             detail: `バージョン: ${app.getVersion()}\n© 2025 ALCS`
           });
         }
@@ -95,6 +95,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

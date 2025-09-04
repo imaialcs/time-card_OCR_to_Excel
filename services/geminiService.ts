@@ -1,26 +1,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { TimeCardData } from '../types';
-
-// The type definition for `window.electronAPI` is now in `electron.d.ts`
-// which is included by the TypeScript compiler.
+import { ProcessedData } from '../types';
 
 // Helper function to get API key from the main process in a secure way.
 const getApiKey = async (): Promise<string> => {
-  // `electronAPI` is exposed by the preload script in Electron environments.
   if (window.electronAPI?.getApiKey) {
     const apiKey = await window.electronAPI.getApiKey();
     if (apiKey) {
       return apiKey;
     }
   }
-  // This error will be thrown if the app is not running in Electron
-  // or if the API key is not set in the main process's environment.
   throw new Error("APIキーが見つかりません。'API_KEY'環境変数が設定されているか確認してください。");
 };
 
-export const processTimeCardFile = async (
-  file: { base64: string; mimeType: string }
-): Promise<TimeCardData[]> => {
+export const processDocumentFile = async (
+  file: { base64: string; mimeType: string, name: string }
+): Promise<ProcessedData[]> => {
   const apiKey = await getApiKey();
   const ai = new GoogleGenAI({ apiKey });
 
@@ -30,68 +24,44 @@ export const processTimeCardFile = async (
       mimeType: file.mimeType,
     },
   };
-  
-  const textPart = {
-    text: `あなたはタイムカードの画像からテキストを抽出するOCRエンジンです。
-以下のルールに厳密に従って、画像内のすべてのタイムカードからデータを抽出し、指定されたJSON形式で出力してください。
+
+  const prompt = `あなたは高度なOCRエンジンです。画像やPDFからテキストを抽出し、その内容に応じて最適な形式で出力します。
 
 # 全体ルール
-- 画像に複数のタイムカードがある場合、それぞれをJSON配列内の個別のオブジェクトとしてください。
-- JSONスキーマに100%準拠した、有効なJSON配列のみを出力してください。
-- 説明、挨拶、マークダウン(\`\`\`json ... \`\`\`)は絶対に含めないでください。
+- **最重要**: 何があっても、指定されたJSONスキーマに100%準拠した有効なJSON配列のみを出力してください。
+- 文書が読み取れない、または内容が空の場合でも、必ず空の配列 '[]' を返してください。エラーメッセージや説明は絶対にJSONに含めないでください。
+- まず、文書の種類を「テーブル形式」か「文字起こし形式」か判断してください。
+  - **テーブル形式**: タイムカード、通帳、請求書など、行と列で構成される構造化された帳票。
+  - **文字起こし形式**: 手紙、メモ、記事など、特定の構造を持たない一般的な文章。
+- 画像に複数の文書がある場合、それぞれをJSON配列内の個別のオブジェクトとしてください。
+- 説明、挨拶、マークダウン('json'など)は絶対に含めないでください。
 
-# 各タイムカードの処理ルール
-1.  **title**:
-    - \`yearMonth\`: タイムカードの年月（例: 「2025年 8月」）を文字列で抽出します。
-    - \`name\`: 氏名を文字列で抽出します。
-    - 見つからない場合は空文字列 \`""\` にしてください。
-2.  **headers**:
-    - 勤怠データの列ヘッダー（例: 「日」「出勤」「退勤」）を文字列の配列として抽出します。
-3.  **data**:
+# 1. テーブル形式の場合の処理ルール
+- 'type': 必ず '"table"' という文字列を設定します。
+- 'title':
+    - 'yearMonth': 文書全体の年月（例: 「2025年 8月」）を抽出します。なければ空文字列 '""'。
+    - 'name': 氏名や件名など、文書の主題を抽出します。なければ空文字列 '""'。
+- 'headers':
+    - データの列ヘッダー（例: 「日」「出勤」「退勤」）を文字列の配列として抽出します。
+- 'data':
     - 各データ行を、文字列の配列に変換します。
-    - **見たままを転記**: 文字、数字、記号を一切変更せずにそのまま転記します。
-    - **空白のセル**: 空白のセルは空文字列 \`""\` にします。
-    - **行の列数を統一**: 各データ行の要素数は、必ず \`headers\` 配列の要素数と一致させてください。足りない場合は \`""\` で埋めてください。
-    - **空白行**: 何も書かれていない行も、\`headers\` と同じ数の \`""\` を持つ配列として含めてください。
-    - \`data\` は、必ず **文字列の配列の配列 (\`string[][]\`)** となるようにしてください。\`null\` や他の型を含めないでください。`
-  };
+    - **見たままを転記**: 文字、数字、記号を一切変更せずにそのまま転記します。特に、9:05や8:00のような時間や、1.00のような数字は、欠落させずに必ず文字列として含めてください。
+    - **空白のセル**: 空白のセルは空文字列 '""' にします。
+    - **行の列数を統一**: 各データ行の要素数は、必ず 'headers' 配列の要素数と一致させてください。足りない場合は '""' で埋めてください。
+    - 'data' は、必ず **文字列の配列の配列 ('string[][]')** となるようにしてください。
+
+# 2. 文字起こし形式の場合の処理ルール
+- 'type': 必ず '"transcription"' という文字列を設定します。
+- 'fileName': この文書のファイル名です。常に '${file.name}' を設定してください。
+- 'content':
+    - 文書内のすべてのテキストを、改行も含めて一つの文字列として書き起こします。
+    - 見たままを忠実に再現してください。`;
+
+  const textPart = { text: prompt };
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: { parts: [filePart, textPart] },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: {
-              type: Type.OBJECT,
-              properties: {
-                yearMonth: { type: Type.STRING, description: "タイムカードの年月 (例: 2025年8月)。" },
-                name: { type: Type.STRING, description: "タイムカードの氏名 (例: 田中 直子)" },
-              },
-              required: ["yearMonth", "name"],
-            },
-            headers: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "タイムカードの列ヘッダー (例: ['日付', '出勤', '退勤', '備考'])",
-            },
-            data: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              description: "タイムカードの勤怠データ。各行は文字列の配列。",
-            },
-          },
-          required: ["title", "headers", "data"],
-        },
-      },
-    },
   });
 
   if (!response.text) {
@@ -99,20 +69,36 @@ export const processTimeCardFile = async (
   }
 
   let jsonString = response.text.trim();
-  // モデルが稀にマークダウンを付与する場合があるため、除去します。
-  if (jsonString.startsWith("```json")) {
-    jsonString = jsonString.substring(7, jsonString.length - 3).trim();
-  } else if (jsonString.startsWith("```")) {
-    jsonString = jsonString.substring(3, jsonString.length - 3).trim();
+  
+  // Find the start and end of the JSON content
+  const arrayStart = jsonString.indexOf('[');
+  const arrayEnd = jsonString.lastIndexOf(']');
+  
+  if (arrayStart !== -1 && arrayEnd !== -1) {
+    jsonString = jsonString.substring(arrayStart, arrayEnd + 1);
+  } else {
+    // Fallback for single object response, though the schema expects an array
+    const objectStart = jsonString.indexOf('{');
+    const objectEnd = jsonString.lastIndexOf('}');
+    if (objectStart !== -1 && objectEnd !== -1) {
+        jsonString = jsonString.substring(objectStart, objectEnd + 1);
+    }
   }
 
   try {
     const parsedData = JSON.parse(jsonString);
     if (Array.isArray(parsedData)) {
-        return parsedData as TimeCardData[];
-    } else {
-        throw new Error("Parsed JSON is not an array as expected.");
+        // Basic validation to ensure the data looks like ProcessedData[]
+        const isValid = parsedData.every(item =>
+            (item.type === 'table' && 'headers' in item && 'data' in item) ||
+            (item.type === 'transcription' && 'content' in item)
+        );
+        if (isValid) {
+            return parsedData as ProcessedData[];
+        }
     }
+    throw new Error("Parsed JSON does not match the expected ProcessedData[] structure.");
+
   } catch (e) {
     console.error("Failed to parse JSON response:", e);
     console.error("Received response string:", jsonString);

@@ -1,27 +1,13 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { processTimeCardFile } from './services/geminiService';
-import { TimeCardData } from './types';
-import { UploadIcon, DownloadIcon, ProcessingIcon, FileIcon, CloseIcon, MailIcon, UsersIcon, TableCellsIcon, SparklesIcon, ChevronDownIcon } from './components/icons';
-import { UpdateNotification } from './components/UpdateNotification';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import { processDocumentFile } from './services/geminiService';
+import { ProcessedData, ProcessedTable, ProcessedText, FilePreview } from './types';
+import { UploadIcon, DownloadIcon, ProcessingIcon, FileIcon, CloseIcon, MailIcon, UsersIcon, TableCellsIcon, SparklesIcon, ChevronDownIcon, DocumentTextIcon } from './components/icons';
+const UpdateNotification = lazy(() => import('./components/UpdateNotification'));
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// The application uses an import map to load pdfjs-dist from a CDN. This makes
-// Vite's "?url" import suffix incompatible for resolving the worker path, which
-// was leading to a module loading error.
-// To fix this, we construct the worker URL dynamically using the version from the
-// loaded pdfjs-dist library itself and the known CDN path. This is a more
-// reliable method for this specific import-map-based setup.
 if (pdfjsLib.version) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://aistudiocdn.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
-}
-
-interface FilePreview {
-  file: File;
-  type: 'image' | 'pdf';
-  url: string | null; // 画像のURLまたはPDFサムネイルのData URL
-  name: string;
-  isLoading: boolean; // PDFサムネイル生成中のローディング状態
 }
 
 const readFileAsBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
@@ -48,8 +34,7 @@ const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     });
 };
 
-
-const MultiFileUploader: React.FC<{
+const MultiFileUploader: React.FC<{ 
   onFilesUpload: (files: FileList) => void;
   previews: FilePreview[];
   onRemoveFile: (index: number) => void;
@@ -59,7 +44,7 @@ const MultiFileUploader: React.FC<{
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       onFilesUpload(event.target.files);
-      event.target.value = ''; // Reset input to allow re-selecting the same files
+      event.target.value = '';
     }
   };
 
@@ -158,7 +143,7 @@ const MultiFileUploader: React.FC<{
   );
 };
 
-const TimeCardTable: React.FC<{
+const DataTable: React.FC<{ 
   cardIndex: number;
   headers: string[];
   data: string[][];
@@ -195,6 +180,22 @@ const TimeCardTable: React.FC<{
   );
 };
 
+const TranscriptionView: React.FC<{ 
+  cardIndex: number;
+  content: string;
+  onContentChange: (cardIndex: number, value: string) => void;
+}> = ({ cardIndex, content, onContentChange }) => {
+  return (
+    <textarea
+      value={content}
+      onChange={(e) => onContentChange(cardIndex, e.target.value)}
+      className="w-full h-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 bg-gray-50 font-mono text-sm"
+      aria-label="Transcription Content"
+    />
+  );
+};
+
+
 // --- String Similarity Function (Levenshtein Distance) ---
 const levenshteinDistance = (a: string, b: string): number => {
     if (a.length === 0) return b.length;
@@ -229,7 +230,6 @@ const findBestMatch = (name: string, roster: string[]): string | null => {
     let minDistance = Infinity;
     const similarityThreshold = 0.7; // 70% similarity required
 
-    // Normalize names by removing spaces
     const normalizedName = name.replace(/\s+/g, '');
 
     for (const rosterName of roster) {
@@ -245,7 +245,6 @@ const findBestMatch = (name: string, roster: string[]): string | null => {
     return bestMatch;
 };
 
-// Helper to convert Excel column letter (e.g., "B") to a zero-based index (1)
 const columnToIndex = (col: string): number => {
     let index = 0;
     const upperCol = col.toUpperCase();
@@ -255,69 +254,56 @@ const columnToIndex = (col: string): number => {
     return index - 1;
 };
 
-// --- Intelligent Sheet Name Matching ---
 const findMatchingSheetName = (fullName: string, sheetNames: string[]): string | null => {
     if (!fullName || sheetNames.length === 0) {
         return null;
     }
 
     const trimmedFullName = fullName.trim();
-    // Split by one or more spaces (half-width or full-width) and filter out empty strings
-    const nameParts = trimmedFullName.split(/[\s　]+/).filter(p => p);
+    const nameParts = trimmedFullName.split(/[　 ]+/ ).filter(p => p);
 
     if (nameParts.length === 0) {
         return null;
     }
 
-    // Normalize sheet names by trimming whitespace for reliable comparison
     const normalizedSheetNames = sheetNames.map(s => s.trim());
 
-    // Priority 1: Exact match for the full name
     let foundIndex = normalizedSheetNames.findIndex(sheet => sheet === trimmedFullName);
     if (foundIndex > -1) return sheetNames[foundIndex];
 
-    // Priority 2: Match the first name part (e.g., "Miyazaki" in "Miyazaki Tomoko")
     const firstNamePart = nameParts[0];
     foundIndex = normalizedSheetNames.findIndex(sheet => sheet === firstNamePart);
     if (foundIndex > -1) return sheetNames[foundIndex];
     
-    // Priority 3: Match the last name part (only if there is more than one part)
     if (nameParts.length > 1) {
         const lastNamePart = nameParts[nameParts.length - 1];
         foundIndex = normalizedSheetNames.findIndex(sheet => sheet === lastNamePart);
         if (foundIndex > -1) return sheetNames[foundIndex];
     }
 
-    return null; // No match found
+    return null;
 };
 
 
 const App = () => {
   const [previews, setPreviews] = useState<FilePreview[]>([]);
-  const [timeCardData, setTimeCardData] = useState<TimeCardData[]>([]);
+  const [processedData, setProcessedData] = useState<ProcessedData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalPreview, setModalPreview] = useState<FilePreview | null>(null);
   const [hasScrolledToResults, setHasScrolledToResults] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   
-  // State for Auto-Update feature
   const [updateStatus, setUpdateStatus] = useState<{ message: string; ready?: boolean; transient?: boolean } | null>(null);
   const updateTimeoutRef = useRef<number | null>(null);
 
-  // State for advanced features
   const [roster, setRoster] = useState<string[]>([]);
   const [rosterFile, setRosterFile] = useState<File | null>(null);
-  const [rosterSettings, setRosterSettings] = useState({
-    sheetName: '',
-    column: 'A',
-  });
+  const [rosterSettings, setRosterSettings] = useState({ sheetName: '', column: 'A' });
   const [excelTemplateFile, setExcelTemplateFile] = useState<File | null>(null);
   const [excelTemplateData, setExcelTemplateData] = useState<ArrayBuffer | null>(null);
   const [outputMode, setOutputMode] = useState<'new' | 'template'>('new');
-  const [templateSettings, setTemplateSettings] = useState({
-    dataStartCell: 'A1',
-  });
+  const [templateSettings, setTemplateSettings] = useState({ dataStartCell: 'A1' });
 
   useEffect(() => {
     return () => {
@@ -330,11 +316,11 @@ const App = () => {
   }, [previews]);
 
   useEffect(() => {
-    if (timeCardData.length > 0 && !loading && !hasScrolledToResults) {
+    if (processedData.length > 0 && !loading && !hasScrolledToResults) {
       resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setHasScrolledToResults(true);
     }
-  }, [timeCardData, loading, hasScrolledToResults]);
+  }, [processedData, loading, hasScrolledToResults]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -348,31 +334,21 @@ const App = () => {
     };
   }, []);
 
-  // Effect for listening to auto-update status
   useEffect(() => {
     if (window.electronAPI?.onUpdateStatus) {
       const removeListener = window.electronAPI.onUpdateStatus((status) => {
         console.log('Update status received:', status);
-        
-        // Clear any existing timeout to prevent the message from
-        // disappearing prematurely if a new status arrives.
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
         }
-
         setUpdateStatus(status);
-
-        // If the status message is marked as transient (e.g., "You are up to date"),
-        // set a timer to automatically hide it after a few seconds.
         if (status.transient) {
           updateTimeoutRef.current = window.setTimeout(() => {
             setUpdateStatus(null);
             updateTimeoutRef.current = null;
-          }, 5000); // Hide after 5 seconds
+          }, 5000);
         }
       });
-      
-      // Cleanup function for when the component unmounts.
       return () => {
         removeListener();
         if (updateTimeoutRef.current) {
@@ -443,7 +419,7 @@ const App = () => {
         }
     });
     setPreviews([]);
-    setTimeCardData([]);
+    setProcessedData([]);
     setError(null);
     setHasScrolledToResults(false);
   }, [previews]);
@@ -453,8 +429,6 @@ const App = () => {
         setModalPreview(preview);
     }
   }, []);
-
-  // --- Handlers for New Features ---
 
   const handleRosterSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -492,7 +466,7 @@ const App = () => {
             .filter((name: unknown): name is string => typeof name === 'string' && name.trim() !== '');
         
         setRoster(names);
-        setError(null); // Clear previous errors if successful
+        setError(null);
     } catch (err) {
         setError('名簿ファイルの読み込みに失敗しました。');
         console.error(err);
@@ -524,156 +498,194 @@ const App = () => {
     if (previews.length === 0) return;
     setLoading(true);
     setError(null);
-    setTimeCardData([]);
+    setProcessedData([]);
     setHasScrolledToResults(false);
     
-    let allExtractedData: TimeCardData[] = [];
+    let allExtractedData: ProcessedData[] = [];
 
     try {
       for (const p of previews) {
         const file = p.file;
         const { base64, mimeType } = await readFileAsBase64(file);
-        const result = await processTimeCardFile({ base64, mimeType });
+        const result = await processDocumentFile({ base64, mimeType, name: file.name });
         allExtractedData.push(...result);
       }
 
-      const sanitizedAndValidatedData = allExtractedData.map(card => {
-          if (!card || typeof card !== 'object' || !card.headers || !card.data) return null;
-          const sanitizedHeaders = Array.isArray(card.headers) ? card.headers.map(h => String(h ?? "")) : [];
-          const headerCount = sanitizedHeaders.length;
-          const sanitizedData = Array.isArray(card.data) ? card.data.map(row => {
-              if (!Array.isArray(row)) return null;
-              let sanitizedRow = row.map(cell => String(cell ?? ""));
-              if (sanitizedRow.length < headerCount) {
-                sanitizedRow = [...sanitizedRow, ...Array(headerCount - sanitizedRow.length).fill("")];
-              } else if (sanitizedRow.length > headerCount) {
-                sanitizedRow = sanitizedRow.slice(0, headerCount);
-              }
-              return sanitizedRow;
-            }).filter((row): row is string[] => row !== null) : [];
+      const sanitizedAndValidatedData = allExtractedData.map(item => {
+          if (item.type === 'table') {
+            const card = item as ProcessedTable;
+            if (!card || typeof card !== 'object' || !card.headers || !card.data) return null;
+            const sanitizedHeaders = Array.isArray(card.headers) ? card.headers.map(h => String(h ?? "")) : [];
+            const headerCount = sanitizedHeaders.length;
+            const sanitizedData = Array.isArray(card.data) ? card.data.map(row => {
+                if (!Array.isArray(row)) return null;
+                let sanitizedRow = row.map(cell => String(cell ?? ""));
+                if (sanitizedRow.length < headerCount) {
+                  sanitizedRow = [...sanitizedRow, ...Array(headerCount - sanitizedRow.length).fill("")];
+                } else if (sanitizedRow.length > headerCount) {
+                  sanitizedRow = sanitizedRow.slice(0, headerCount);
+                }
+                return sanitizedRow;
+              }).filter((row): row is string[] => row !== null) : [];
 
-          const sanitizedCard: TimeCardData = {
-            title: { yearMonth: String(card.title?.yearMonth ?? ""), name: String(card.title?.name ?? "") },
-            headers: sanitizedHeaders, data: sanitizedData
-          };
-          
-          // --- Roster Matching Logic ---
-          if (roster.length > 0) {
-              const bestMatch = findBestMatch(sanitizedCard.title.name, roster);
-              if (bestMatch && bestMatch !== sanitizedCard.title.name) {
-                  sanitizedCard.title.name = bestMatch;
-                  sanitizedCard.nameCorrected = true;
-              }
+            const sanitizedCard: ProcessedTable = { 
+              type: 'table',
+              title: { yearMonth: String(card.title?.yearMonth ?? ""), name: String(card.title?.name ?? "") },
+              headers: sanitizedHeaders, data: sanitizedData
+            };
+            
+            if (roster.length > 0) {
+                const bestMatch = findBestMatch(sanitizedCard.title.name, roster);
+                if (bestMatch && bestMatch !== sanitizedCard.title.name) {
+                    sanitizedCard.title.name = bestMatch;
+                    sanitizedCard.nameCorrected = true;
+                }
+            }
+            return sanitizedCard;
+          } else if (item.type === 'transcription') {
+            return item as ProcessedText;
           }
-          return sanitizedCard;
-        }).filter((card): card is TimeCardData => card !== null);
+          return null;
+        }).filter((card): card is ProcessedData => card !== null);
 
       if (allExtractedData.length > 0 && sanitizedAndValidatedData.length === 0) {
-        throw new Error("AIは応答しましたが、期待されるデータ形式と一致しませんでした。ファイルがタイムカード形式であることを確認してください。");
+        throw new Error("AIは応答しましたが、期待されるデータ形式と一致しませんでした。ファイルが対応形式であることを確認してください。");
       }
 
-      const mergedData = new Map<string, TimeCardData>();
-      sanitizedAndValidatedData.forEach(card => {
-        const key = `${card.title.name.replace(/\s+/g, '')}-${card.title.yearMonth.replace(/\s+/g, '')}`;
-        if (mergedData.has(key)) {
-          const existingCard = mergedData.get(key)!;
-          existingCard.data.push(...card.data);
-          existingCard.data.sort((a, b) => {
-              const dateA = parseInt(a[0]?.trim(), 10) || 0;
-              const dateB = parseInt(b[0]?.trim(), 10) || 0;
-              return dateA - dateB;
-          });
+      const mergedDataMap = new Map<string, ProcessedTable>();
+      const finalData: ProcessedData[] = [];
+
+      sanitizedAndValidatedData.forEach(item => {
+        if (item.type === 'table') {
+            const key = `${item.title.name.replace(/\s+/g, '')}-${item.title.yearMonth.replace(/\s+/g, '')}`;
+            if (mergedDataMap.has(key)) {
+                const existingCard = mergedDataMap.get(key)!;
+                existingCard.data.push(...item.data);
+                existingCard.data.sort((a, b) => {
+                    const dateA = parseInt(a[0]?.trim(), 10) || 0;
+                    const dateB = parseInt(b[0]?.trim(), 10) || 0;
+                    return dateA - dateB;
+                });
+            } else {
+                mergedDataMap.set(key, JSON.parse(JSON.stringify(item)));
+            }
         } else {
-          mergedData.set(key, JSON.parse(JSON.stringify(card)));
+            finalData.push(item);
         }
       });
-      setTimeCardData(Array.from(mergedData.values()));
+
+      setProcessedData([...Array.from(mergedDataMap.values()), ...finalData]);
 
     } catch (e: any) {
-      console.error(e);
-      setError(`処理中にエラーが発生しました:\n${e.message || JSON.stringify(e)}`);
+        console.error(e);
+        const message = e.message || JSON.stringify(e);
+        if (message.includes('503') || message.toLowerCase().includes('overloaded') || message.toLowerCase().includes('unavailable')) {
+            setError("AIモデルが現在大変混み合っています。ご迷惑をおかけしますが、しばらく時間をおいてから再度お試しください。");
+        } else {
+            setError(`処理中に予期せぬエラーが発生しました:\n${message}`);
+        }
     } finally {
       setLoading(false);
     }
   };
 
   const handleDataChange = (cardIndex: number, rowIndex: number, cellIndex: number, value: string) => {
-    setTimeCardData(prevData => {
+    setProcessedData(prevData => {
       const newData = JSON.parse(JSON.stringify(prevData));
-      if(newData[cardIndex] && newData[cardIndex].data[rowIndex]) {
-        newData[cardIndex].data[rowIndex][cellIndex] = value;
+      const item = newData[cardIndex];
+      if(item.type === 'table' && item.data[rowIndex]) {
+        item.data[rowIndex][cellIndex] = value;
+      }
+      return newData;
+    });
+  };
+  
+  const handleContentChange = (cardIndex: number, value: string) => {
+    setProcessedData(prevData => {
+      const newData = JSON.parse(JSON.stringify(prevData));
+      const item = newData[cardIndex];
+      if (item.type === 'transcription') {
+        item.content = value;
       }
       return newData;
     });
   };
 
   const handleTitleChange = (cardIndex: number, field: 'yearMonth' | 'name', value: string) => {
-    setTimeCardData(prevData => {
+    setProcessedData(prevData => {
       const newData = JSON.parse(JSON.stringify(prevData));
-      if (newData[cardIndex] && newData[cardIndex].title) {
-        newData[cardIndex].title[field] = value;
-        // If user manually edits name, remove the corrected flag
+      const item = newData[cardIndex];
+      if (item.type === 'table' && item.title) {
+        item.title[field] = value;
         if (field === 'name') {
-            newData[cardIndex].nameCorrected = false;
+            item.nameCorrected = false;
         }
       }
       return newData;
     });
   };
   
-  const handleDownloadSingleCard = (card: TimeCardData) => {
-    const fileNameBase = `${card.title.name.replace(/\s+/g, '')}_${card.title.yearMonth.replace(/\s+/g, '')}`.replace(/[\\/*?:"<>|]/g, '_') || 'TimeCard';
+  const handleDownloadSingle = (item: ProcessedData) => {
+    if (item.type === 'table') {
+        const card = item as ProcessedTable;
+        const fileNameBase = `${card.title.name.replace(/\s+/g, '')}_${card.title.yearMonth.replace(/\s+/g, '')}`.replace(/[\	extit{}:"<>|]/g, '_') || 'Document';
 
-    if (outputMode === 'template') {
-        if (!excelTemplateData || !templateSettings.dataStartCell) {
-            setError('テンプレートファイルとデータ開始セルを指定してください。');
-            return;
-        }
-        try {
-            const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
-            const targetSheetName = findMatchingSheetName(card.title.name, templateWb.SheetNames);
-            
-            if (!targetSheetName) {
-                setError(`テンプレートファイルに、氏名「${card.title.name}」に一致するシート（フルネーム/姓/名）が見つかりませんでした。`);
+        if (outputMode === 'template') {
+            if (!excelTemplateData || !templateSettings.dataStartCell) {
+                setError('テンプレートファイルとデータ開始セルを指定してください。');
                 return;
             }
-
-            // Create a new workbook to avoid side-effects and preserve the original template.
-            const newWb = XLSX.utils.book_new();
-
-            // Copy all sheets from the template to the new workbook, preserving their names.
-            templateWb.SheetNames.forEach((sheetName: string) => {
-                const originalSheet = templateWb.Sheets[sheetName];
-                // Deep copy the sheet object.
-                const newSheet = JSON.parse(JSON.stringify(originalSheet));
-
-                // If this is the sheet we are targeting, write data into the copied sheet.
-                if (sheetName === targetSheetName) {
-                    XLSX.utils.sheet_add_aoa(newSheet, card.data, { origin: templateSettings.dataStartCell });
-                }
+            try {
+                const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
+                const targetSheetName = findMatchingSheetName(card.title.name, templateWb.SheetNames);
                 
-                // Append the sheet (original or modified) to the new workbook.
-                XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
-            });
+                if (!targetSheetName) {
+                    setError(`テンプレートファイルに、氏名「${card.title.name}」に一致するシート（フルネーム/姓/名）が見つかりませんでした。`);
+                    return;
+                }
 
-            XLSX.writeFile(newWb, `${fileNameBase}_template_filled.xlsx`);
-            setError(null); // Clear error on success
-        } catch (err: any) {
-            setError(`テンプレートへの書き込み中にエラーが発生しました: ${err.message}`);
-            console.error(err);
+                const newWb = XLSX.utils.book_new();
+                templateWb.SheetNames.forEach((sheetName: string) => {
+                    const originalSheet = templateWb.Sheets[sheetName];
+                    const newSheet = JSON.parse(JSON.stringify(originalSheet));
+                    if (sheetName === targetSheetName) {
+                        XLSX.utils.sheet_add_aoa(newSheet, card.data, { origin: templateSettings.dataStartCell });
+                    }
+                    XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
+                });
+
+                XLSX.writeFile(newWb, `${fileNameBase}_template_filled.xlsx`);
+                setError(null);
+            } catch (err: any) {
+                setError(`テンプレートへの書き込み中にエラーが発生しました: ${err.message}`);
+                console.error(err);
+            }
+        } else {
+            const wb = XLSX.utils.book_new();
+            const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\	extit{}:"<>|]/g, '').substring(0, 31);
+            const ws_data = [['期間', card.title.yearMonth], ['件名', card.title.name], [], card.headers, ...card.data];
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, `${fileNameBase}.xlsx`);
         }
-    } else { // 'new' mode
-        const wb = XLSX.utils.book_new();
-        const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\\/*?:"<>|]/g, '').substring(0, 31);
-        const ws_data = [['年月', card.title.yearMonth], ['氏名', card.title.name], [], card.headers, ...card.data];
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        XLSX.writeFile(wb, `${fileNameBase}.xlsx`);
+    } else if (item.type === 'transcription') {
+        const textItem = item as ProcessedText;
+        const blob = new Blob([textItem.content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileName = `${textItem.fileName.replace(/\.[^/.]+$/, "")}.txt`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
   };
 
   const handleDownloadAll = () => {
-    if (timeCardData.length === 0) return;
+    const tableData = processedData.filter(d => d.type === 'table') as ProcessedTable[];
+    if (tableData.length === 0) return;
 
     if (outputMode === 'template') {
         if (!excelTemplateData || !excelTemplateFile || !templateSettings.dataStartCell) {
@@ -682,12 +694,11 @@ const App = () => {
         }
         try {
             const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
-            const newWb = XLSX.utils.book_new(); // Create a brand new workbook to write to.
+            const newWb = XLSX.utils.book_new();
             const unmatchedNames: string[] = [];
 
-            // Create a map of which data goes into which original sheet name.
             const dataBySheet = new Map<string, string[][]>();
-            timeCardData.forEach(card => {
+            tableData.forEach(card => {
                 const targetSheetName = findMatchingSheetName(card.title.name, templateWb.SheetNames);
                 if (targetSheetName) {
                     dataBySheet.set(targetSheetName, card.data);
@@ -696,19 +707,13 @@ const App = () => {
                 }
             });
 
-            // Build the new workbook by copying all original sheets and adding data where needed.
             templateWb.SheetNames.forEach((sheetName: string) => {
                 const originalSheet = templateWb.Sheets[sheetName];
-                // Deep copy to prevent any modification of the original object.
                 const newSheet = JSON.parse(JSON.stringify(originalSheet));
-
-                // If this sheet has data to be written, add it.
                 if (dataBySheet.has(sheetName)) {
                     const dataToWrite = dataBySheet.get(sheetName)!;
                     XLSX.utils.sheet_add_aoa(newSheet, dataToWrite, { origin: templateSettings.dataStartCell });
                 }
-
-                // Append the sheet to the new workbook, preserving the original name.
                 XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
             });
 
@@ -716,24 +721,25 @@ const App = () => {
             XLSX.writeFile(newWb, outputFileName);
             
             if (unmatchedNames.length > 0) {
-                setError(`転記が完了しましたが、一部の氏名のシートが見つかりませんでした。\n未転記: ${unmatchedNames.join(', ')}`);
+                setError(`転記が完了しましたが、一部の氏名のシートが見つかりませんでした。
+未転記: ${unmatchedNames.join(', ')}`);
             } else {
-                setError(null); // Clear previous errors on full success
+                setError(null);
             }
         } catch (err: any) {
             setError(`テンプレートへの一括書き込み中にエラーが発生しました: ${err.message}`);
             console.error(err);
         }
 
-    } else { // 'new' mode
+    } else {
         const wb = XLSX.utils.book_new();
-        timeCardData.forEach(card => {
-          const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\\/*?:"<>|]/g, '').substring(0, 31);
-          const ws_data = [['年月', card.title.yearMonth], ['氏名', card.title.name], [], card.headers, ...card.data];
+        tableData.forEach(card => {
+          const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\	extit{}:"<>|]/g, '').substring(0, 31);
+          const ws_data = [['期間', card.title.yearMonth], ['件名', card.title.name], [], card.headers, ...card.data];
           const ws = XLSX.utils.aoa_to_sheet(ws_data);
           XLSX.utils.book_append_sheet(wb, ws, sheetName);
         });
-        XLSX.writeFile(wb, 'TimeCards_All.xlsx');
+        XLSX.writeFile(wb, 'Documents_All.xlsx');
     }
   };
 
@@ -742,11 +748,11 @@ const App = () => {
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-6xl mx-auto">
         <header className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">タイムカード OCR to Excel</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">ALCS文書OCR</h1>
           <p className="mt-2 text-gray-600">
-            タイムカードの画像やPDFをアップロードするとAIが内容をテキスト化します。<br/>
+            会計帳票などの画像やPDFをアップロードするとAIが内容をテキスト化します。<br/>
             読み取りは完ぺきではないため、この画面上で直接、数字や文字を修正してください。<br/>
-            修正後、Excelファイルとしてダウンロードできます。
+            修正後、Excelまたはテキストファイルとしてダウンロードできます。
           </p>
         </header>
 
@@ -757,7 +763,6 @@ const App = () => {
               <MultiFileUploader onFilesUpload={handleFilesUpload} previews={previews} onRemoveFile={handleRemoveFile} onClearAll={handleClearAll} onPreviewClick={handlePreviewClick} />
             </div>
 
-            {/* --- Advanced Settings Sections --- */}
             <div className='space-y-4'>
                 <details className="group rounded-lg bg-gray-50 p-4 transition-all duration-300 open:ring-1 open:ring-gray-200">
                     <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold text-gray-700">
@@ -791,7 +796,7 @@ const App = () => {
                     </summary>
                     <div className="mt-4 space-y-4 border-t pt-4">
                         <fieldset>
-                            <legend className="text-sm font-medium text-gray-900">出力方法を選択してください</legend>
+                            <legend className="text-sm font-medium text-gray-900">出力方法を選択してください (表形式データのみ)</legend>
                             <div className="mt-2 flex gap-8">
                                 <div className="flex items-center gap-x-3"><input id="output-new" name="output-mode" type="radio" value="new" checked={outputMode === 'new'} onChange={() => setOutputMode('new')} className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-600" /><label htmlFor="output-new" className="block text-sm font-medium leading-6 text-gray-900">新規Excelファイルを作成</label></div>
                                 <div className="flex items-center gap-x-3"><input id="output-template" name="output-mode" type="radio" value="template" checked={outputMode === 'template'} onChange={() => setOutputMode('template')} className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-600" /><label htmlFor="output-template" className="block text-sm font-medium leading-6 text-gray-900">既存のExcelファイルに転記</label></div>
@@ -837,45 +842,66 @@ const App = () => {
             </div>
           )}
 
-          {timeCardData.length > 0 && (
+          {processedData.length > 0 && (
             <div ref={resultsRef} className="p-6 bg-white rounded-lg shadow-md">
-              <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-                <h2 className="text-lg font-semibold text-gray-700">3. 結果の確認と修正</h2>
-                <button
-                  onClick={handleDownloadAll}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  <DownloadIcon className="-ml-1 mr-2 h-5 w-5" />
-                  {outputMode === 'template' ? 'すべてテンプレートに転記' : 'すべてExcel形式でダウンロード'}
-                </button>
-              </div>
-              <div className="space-y-8">
-                {timeCardData.map((card, index) => (
-                  <div key={index} className="border-t pt-6 first:border-t-0 first:pt-0">
-                    <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-                        <div className="flex items-center gap-2 text-xl font-bold text-gray-800 flex-grow mr-4 min-w-[200px]">
-                            <input type="text" value={card.title.yearMonth} onChange={(e) => handleTitleChange(index, 'yearMonth', e.target.value)} className="p-1 border border-transparent hover:border-gray-300 focus:border-blue-500 rounded-md bg-transparent w-full sm:w-auto" aria-label="Edit Year and Month" />
-                            <span className="text-gray-500">-</span>
-                            <div className="flex items-center gap-1.5 flex-grow">
-                                {card.nameCorrected && <SparklesIcon className="h-5 w-5 text-blue-500 flex-shrink-0" title="名簿により自動修正" />}
-                                <input type="text" value={card.title.name} onChange={(e) => handleTitleChange(index, 'name', e.target.value)} className="p-1 border border-transparent hover:border-gray-300 focus:border-blue-500 rounded-md bg-transparent w-full" aria-label="Edit Name" />
-                            </div>
-                        </div>
-                        <button onClick={() => handleDownloadSingleCard(card)} className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 flex-shrink-0" aria-label={`${card.title.name}のタイムカードをダウンロード`}>
-                            <DownloadIcon className="-ml-0.5 mr-2 h-4 w-4" />
-                            このカードをダウンロード
-                        </button>
+              <Suspense fallback={<div>Loading...</div>}> 
+                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-700">3. 結果の確認と修正</h2>
+                  <button
+                    onClick={handleDownloadAll}
+                    disabled={processedData.every(d => d.type !== 'table')}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <DownloadIcon className="-ml-1 mr-2 h-5 w-5" />
+                    {outputMode === 'template' ? 'すべてテンプレートに転記' : 'すべてExcel形式でダウンロード'}
+                  </button>
+                </div>
+                <div className="space-y-8">
+                  {processedData.map((item, index) => (
+                    <div key={index} className="border-t pt-6 first:border-t-0 first:pt-0">
+                      {item.type === 'table' ? (
+                        <>
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2 text-xl font-bold text-gray-800 flex-grow mr-4 min-w-[200px]">
+                                  <input type="text" value={item.title.yearMonth} onChange={(e) => handleTitleChange(index, 'yearMonth', e.target.value)} className="p-1 border border-transparent hover:border-gray-300 focus:border-blue-500 rounded-md bg-transparent w-full sm:w-auto" aria-label="Edit Year and Month" />
+                                  <span className="text-gray-500">-</span>
+                                  <div className="flex items-center gap-1.5 flex-grow">
+                                      {item.nameCorrected && <SparklesIcon className="h-5 w-5 text-blue-500 flex-shrink-0" title="名簿により自動修正" />}
+                                      <input type="text" value={item.title.name} onChange={(e) => handleTitleChange(index, 'name', e.target.value)} className="p-1 border border-transparent hover:border-gray-300 focus:border-blue-500 rounded-md bg-transparent w-full" aria-label="Edit Name" />
+                                  </div>
+                              </div>
+                              <button onClick={() => handleDownloadSingle(item)} className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 flex-shrink-0" aria-label={`${item.title.name}の帳票をダウンロード`}>
+                                  <DownloadIcon className="-ml-0.5 mr-2 h-4 w-4" />
+                                  この帳票をダウンロード
+                              </button>
+                          </div>
+                          <DataTable cardIndex={index} headers={item.headers} data={item.data} onDataChange={handleDataChange} />
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2 text-xl font-bold text-gray-800 flex-grow mr-4 min-w-[200px]">
+                                  <DocumentTextIcon className="h-6 w-6 text-gray-600" />
+                                  <span>{item.fileName}</span>
+                              </div>
+                              <button onClick={() => handleDownloadSingle(item)} className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 flex-shrink-0" aria-label={`${item.fileName}をダウンロード`}>
+                                  <DownloadIcon className="-ml-0.5 mr-2 h-4 w-4" />
+                                  テキストファイルで保存
+                              </button>
+                          </div>
+                          <TranscriptionView cardIndex={index} content={item.content} onContentChange={handleContentChange} />
+                        </>
+                      )}
                     </div>
-                    <TimeCardTable cardIndex={index} headers={card.headers} data={card.data} onDataChange={handleDataChange} />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </Suspense>
             </div>
           )}
         </main>
         
         <footer className="text-center mt-12 py-6 border-t border-gray-200 space-y-4">
-          <a href="mailto:imai_f@alcs.co.jp?subject=%E3%82%BF%E3%82%A4%E3%83%A0%E3%82%AB%E3%83¼%E3%83%89%20OCR%20to%20Excel%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" className="inline-flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-blue-800 hover:underline">
+          <a href="mailto:imai_f@alcs.co.jp?subject=ALCS%E6%96%87%E6%9B%B8OCR%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" className="inline-flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-blue-800 hover:underline">
             <MailIcon className="h-5 w-5" />
             <span>フィードバックや不具合報告はこちら</span>
           </a>
@@ -914,11 +940,13 @@ const App = () => {
       )}
 
       {updateStatus && (
-        <UpdateNotification
-          message={updateStatus.message}
-          isReady={updateStatus.ready}
-          onRestart={() => window.electronAPI?.restartApp()}
-        />
+        <React.Suspense fallback={null}>
+          <UpdateNotification
+            message={updateStatus.message}
+            isReady={updateStatus.ready}
+            onRestart={() => window.electronAPI?.restartApp()}
+          />
+        </React.Suspense>
       )}
     </div>
   );
