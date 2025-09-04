@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { processDocumentPages } from './services/geminiService';
 import { ProcessedData, ProcessedTable, ProcessedText, FilePreview } from './types';
+import { withRetry } from './services/utils';
 import { UploadIcon, DownloadIcon, ProcessingIcon, FileIcon, CloseIcon, MailIcon, UsersIcon, TableCellsIcon, SparklesIcon, ChevronDownIcon, DocumentTextIcon } from './components/icons';
 const UpdateNotification = lazy(() => import('./components/UpdateNotification'));
 import * as XLSX from 'xlsx';
@@ -536,7 +537,7 @@ const App = () => {
         }
 
         if (pagesToProcess.length > 0) {
-          const result = await processDocumentPages(pagesToProcess);
+          const result = await withRetry(() => processDocumentPages(pagesToProcess));
           allExtractedData.push(...result);
         }
       }

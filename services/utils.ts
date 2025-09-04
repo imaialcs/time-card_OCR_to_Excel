@@ -108,3 +108,30 @@ export const findMatchingSheetName = (fullName: string, sheetNames: string[]): s
 
     return null;
 };
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  delay: number = 1000, // initial delay in ms
+  retryableErrors: string[] = ['503', 'overloaded', 'unavailable']
+): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const errorMessage = error.message || JSON.stringify(error);
+      const isRetryable = retryableErrors.some(err => errorMessage.toLowerCase().includes(err.toLowerCase()));
+
+      if (isRetryable && i < retries - 1) {
+        console.warn(`Retryable error encountered: ${errorMessage}. Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise(res => setTimeout(res, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        throw error; // Not a retryable error or max retries reached
+      }
+    }
+  }
+  throw lastError; // Should not be reached if retries > 0
+}
