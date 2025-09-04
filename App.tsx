@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
-import { processDocumentFile } from './services/geminiService';
+import { processDocumentPages } from './services/geminiService';
 import { ProcessedData, ProcessedTable, ProcessedText, FilePreview } from './types';
 import { UploadIcon, DownloadIcon, ProcessingIcon, FileIcon, CloseIcon, MailIcon, UsersIcon, TableCellsIcon, SparklesIcon, ChevronDownIcon, DocumentTextIcon } from './components/icons';
 const UpdateNotification = lazy(() => import('./components/UpdateNotification'));
@@ -506,9 +506,39 @@ const App = () => {
     try {
       for (const p of previews) {
         const file = p.file;
-        const { base64, mimeType } = await readFileAsBase64(file);
-        const result = await processDocumentFile({ base64, mimeType, name: file.name });
-        allExtractedData.push(...result);
+        let pagesToProcess: { base64: string; mimeType: string; name: string }[] = [];
+
+        if (p.type === 'pdf') {
+          const arrayBuffer = await readFileAsArrayBuffer(file);
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const numPages = pdf.numPages;
+
+          for (let i = 1; i <= numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 2 }); // Render at a higher scale for better OCR quality
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            if (!context) {
+              throw new Error('Could not get canvas context for PDF page rendering');
+            }
+
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            const base64 = canvas.toDataURL('image/png').split(',')[1];
+            pagesToProcess.push({ base64, mimeType: 'image/png', name: `${file.name}_page_${i}` });
+          }
+        } else {
+          // Image file
+          const { base64, mimeType } = await readFileAsBase64(file);
+          pagesToProcess.push({ base64, mimeType, name: file.name });
+        }
+
+        if (pagesToProcess.length > 0) {
+          const result = await processDocumentPages(pagesToProcess);
+          allExtractedData.push(...result);
+        }
       }
 
       const sanitizedAndValidatedData = allExtractedData.map(item => {

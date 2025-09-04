@@ -12,20 +12,23 @@ const getApiKey = async (): Promise<string> => {
   throw new Error("APIキーが見つかりません。'API_KEY'環境変数が設定されているか確認してください。");
 };
 
-export const processDocumentFile = async (
-  file: { base64: string; mimeType: string, name: string }
+export const processDocumentPages = async (
+  pages: { base64: string; mimeType: string, name: string }[]
 ): Promise<ProcessedData[]> => {
   const apiKey = await getApiKey();
   const ai = new GoogleGenAI({ apiKey });
 
-  const filePart = {
-    inlineData: {
-      data: file.base64,
-      mimeType: file.mimeType,
-    },
-  };
+  const allProcessedData: ProcessedData[] = [];
 
-  const prompt = `あなたは高度なOCRエンジンです。画像やPDFからテキストを抽出し、その内容に応じて最適な形式で出力します。
+  for (const page of pages) {
+    const filePart = {
+      inlineData: {
+        data: page.base64,
+        mimeType: page.mimeType,
+      },
+    };
+
+    const prompt = `あなたは高度なOCRエンジンです。画像やPDFからテキストを抽出し、その内容に応じて最適な形式で出力します。
 
 # 全体ルール
 - **最重要**: 何があっても、指定されたJSONスキーマに100%準拠した有効なJSON配列のみを出力してください。
@@ -52,56 +55,60 @@ export const processDocumentFile = async (
 
 # 2. 文字起こし形式の場合の処理ルール
 - 'type': 必ず '"transcription"' という文字列を設定します。
-- 'fileName': この文書のファイル名です。常に '${file.name}' を設定してください。
+- 'fileName': この文書のファイル名です。常に '${page.name}' を設定してください。
 - 'content':
     - 文書内のすべてのテキストを、改行も含めて一つの文字列として書き起こします。
     - 見たままを忠実に再現してください。`;
 
-  const textPart = { text: prompt };
+    const textPart = { text: prompt };
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: { parts: [filePart, textPart] },
-  });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: { parts: [filePart, textPart] },
+    });
 
-  if (!response.text) {
-    throw new Error("APIからの応答にテキストデータが含まれていませんでした。ファイルを確認してもう一度お試しください。");
-  }
+    if (!response.text) {
+      throw new Error("APIからの応答にテキストデータが含まれていませんでした。ファイルを確認してもう一度お試しください。");
+    }
 
-  let jsonString = response.text.trim();
-  
-  // Find the start and end of the JSON content
-  const arrayStart = jsonString.indexOf('[');
-  const arrayEnd = jsonString.lastIndexOf(']');
-  
-  if (arrayStart !== -1 && arrayEnd !== -1) {
-    jsonString = jsonString.substring(arrayStart, arrayEnd + 1);
-  } else {
-    // Fallback for single object response, though the schema expects an array
-    const objectStart = jsonString.indexOf('{');
-    const objectEnd = jsonString.lastIndexOf('}');
-    if (objectStart !== -1 && objectEnd !== -1) {
-        jsonString = jsonString.substring(objectStart, objectEnd + 1);
+    let jsonString = response.text.trim();
+    
+    // Find the start and end of the JSON content
+    const arrayStart = jsonString.indexOf('[');
+    const arrayEnd = jsonString.lastIndexOf(']');
+    
+    if (arrayStart !== -1 && arrayEnd !== -1) {
+      jsonString = jsonString.substring(arrayStart, arrayEnd + 1);
+    } else {
+      // Fallback for single object response, though the schema expects an array
+      const objectStart = jsonString.indexOf('{');
+      const objectEnd = jsonString.lastIndexOf('}');
+      if (objectStart !== -1 && objectEnd !== -1) {
+          jsonString = jsonString.substring(objectStart, objectEnd + 1);
+      }
+    }
+
+    try {
+      const parsedData = JSON.parse(jsonString);
+      if (Array.isArray(parsedData)) {
+          // Basic validation to ensure the data looks like ProcessedData[]
+          const isValid = parsedData.every(item =>
+              (item.type === 'table' && 'headers' in item && 'data' in item) ||
+              (item.type === 'transcription' && 'content' in item)
+          );
+          if (isValid) {
+              allProcessedData.push(...parsedData as ProcessedData[]);
+          } else {
+            console.warn("API returned data that did not fully match ProcessedData[] structure for a page:", parsedData);
+          }
+      } else {
+        console.warn("API returned a non-array response for a page:", parsedData);
+      }
+    } catch (e) {
+      console.error("Failed to parse JSON response for a page:", e);
+      console.error("Received response string for page:", jsonString);
+      // Continue to next page even if one page fails to parse
     }
   }
-
-  try {
-    const parsedData = JSON.parse(jsonString);
-    if (Array.isArray(parsedData)) {
-        // Basic validation to ensure the data looks like ProcessedData[]
-        const isValid = parsedData.every(item =>
-            (item.type === 'table' && 'headers' in item && 'data' in item) ||
-            (item.type === 'transcription' && 'content' in item)
-        );
-        if (isValid) {
-            return parsedData as ProcessedData[];
-        }
-    }
-    throw new Error("Parsed JSON does not match the expected ProcessedData[] structure.");
-
-  } catch (e) {
-    console.error("Failed to parse JSON response:", e);
-    console.error("Received response string:", jsonString);
-    throw new Error("The API returned a response that could not be parsed as valid JSON.");
-  }
+  return allProcessedData;
 };
