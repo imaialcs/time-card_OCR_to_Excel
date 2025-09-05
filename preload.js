@@ -9,6 +9,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // --- File Save API ---
   saveFile: (options, data) => ipcRenderer.invoke('save-file', options, data),
 
+  // --- Settings Import/Export ---
+  exportSettings: (settingsJson) => ipcRenderer.invoke('export-settings', settingsJson),
+  importSettings: () => ipcRenderer.invoke('import-settings'),
+
+  // --- Menu-triggered Actions ---
+  onOpenSettings: (callback) => ipcRenderer.on('open-settings-dialog', callback),
+
   // --- Auto-update API ---
   onUpdateStatus: (callback) => {
     // We wrap the callback to ensure we are only passing the expected arguments.
