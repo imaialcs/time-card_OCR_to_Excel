@@ -29,7 +29,7 @@ ipcMain.handle('save-file', async (event, options, data) => {
       return { success: false, canceled: true };
     }
 
-    fs.writeFileSync(filePath, data);
+    fs.writeFileSync(filePath, Buffer.from(data));
     return { success: true, path: filePath };
   } catch (error) {
     console.error('Failed to save file:', error);
