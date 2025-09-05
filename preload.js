@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // --- Secure API Key Retrieval ---
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
 
+  // --- File Save API ---
+  saveFile: (options, data) => ipcRenderer.invoke('save-file', options, data),
+
   // --- Auto-update API ---
   onUpdateStatus: (callback) => {
     // We wrap the callback to ensure we are only passing the expected arguments.

@@ -24,5 +24,13 @@ interface Window {
      * Tells the main process to quit the application and install the update.
      */
     restartApp: () => void;
+
+    /**
+     * Opens a save dialog and writes the provided data to the selected file.
+     * @param options The options for the save dialog, including the default file path.
+     * @param data The file content as a Uint8Array.
+     * @returns A promise that resolves when the file is saved.
+     */
+    saveFile: (options: { defaultPath: string }, data: Uint8Array) => Promise<void>;
   };
 }

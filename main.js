@@ -1,13 +1,40 @@
 // main.js
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
 // APIキーを安全に取得するためのIPCハンドラ
 ipcMain.handle('get-api-key', () => {
   return process.env.API_KEY;
+});
+
+// ファイル保存ダイアログを表示してファイルを保存するためのIPCハンドラ
+ipcMain.handle('save-file', async (event, options, data) => {
+  const { defaultPath } = options;
+  const focusedWindow = BrowserWindow.fromWebContents(event.sender);
+
+  if (!focusedWindow) {
+    return { success: false, error: 'Could not find the browser window.' };
+  }
+
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(focusedWindow, {
+      defaultPath: defaultPath,
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, canceled: true };
+    }
+
+    fs.writeFileSync(filePath, data);
+    return { success: true, path: filePath };
+  } catch (error) {
+    console.error('Failed to save file:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // メニューテンプレートを定義

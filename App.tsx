@@ -527,8 +527,8 @@ const App = () => {
             }
 
             await page.render({ canvasContext: context, viewport: viewport }).promise;
-            const base64 = canvas.toDataURL('image/png').split(',')[1];
-            pagesToProcess.push({ base64, mimeType: 'image/png', name: `${file.name}_page_${i}` });
+            const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+            pagesToProcess.push({ base64, mimeType: 'image/jpeg', name: `${file.name}_page_${i}` });
           }
         } else {
           // Image file
@@ -656,17 +656,25 @@ const App = () => {
     });
   };
   
-  const handleDownloadSingle = (item: ProcessedData) => {
-    if (item.type === 'table') {
-        const card = item as ProcessedTable;
-        const fileNameBase = `${card.title.name.replace(/\s+/g, '')}_${card.title.yearMonth.replace(/\s+/g, '')}`.replace(/[\	extit{}:"<>|]/g, '_') || 'Document';
+  const handleDownloadSingle = async (item: ProcessedData) => {
+    if (!window.electronAPI) {
+        setError("ファイル保存機能が利用できません。アプリケーションを再起動してください。");
+        return;
+    }
 
-        if (outputMode === 'template') {
-            if (!excelTemplateData || !templateSettings.dataStartCell) {
-                setError('テンプレートファイルとデータ開始セルを指定してください。');
-                return;
-            }
-            try {
+    try {
+        if (item.type === 'table') {
+            const card = item as ProcessedTable;
+            const fileNameBase = `${card.title.name.replace(/\s+/g, '')}_${card.title.yearMonth.replace(/\s+/g, '')}`.replace(/[\/:*?"<>|]/g, '_') || 'Document';
+
+            let fileData: Uint8Array;
+            let fileName: string;
+
+            if (outputMode === 'template') {
+                if (!excelTemplateData || !templateSettings.dataStartCell) {
+                    setError('テンプレートファイルとデータ開始セルを指定してください。');
+                    return;
+                }
                 const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
                 const targetSheetName = findMatchingSheetName(card.title.name, templateWb.SheetNames);
                 
@@ -685,45 +693,50 @@ const App = () => {
                     XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
                 });
 
-                XLSX.writeFile(newWb, `${fileNameBase}_template_filled.xlsx`);
-                setError(null);
-            } catch (err: any) {
-                setError(`テンプレートへの書き込み中にエラーが発生しました: ${err.message}`);
-                console.error(err);
+                fileData = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
+                fileName = `${fileNameBase}_template_filled.xlsx`;
+            } else {
+                const wb = XLSX.utils.book_new();
+                const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\/:*?"<>|]/g, '').substring(0, 31);
+                const ws_data = [['期間', card.title.yearMonth], ['件名', card.title.name], [], card.headers, ...card.data];
+                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                fileData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                fileName = `${fileNameBase}.xlsx`;
             }
-        } else {
-            const wb = XLSX.utils.book_new();
-            const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\	extit{}:"<>|]/g, '').substring(0, 31);
-            const ws_data = [['期間', card.title.yearMonth], ['件名', card.title.name], [], card.headers, ...card.data];
-            const ws = XLSX.utils.aoa_to_sheet(ws_data);
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            XLSX.writeFile(wb, `${fileNameBase}.xlsx`);
+            await window.electronAPI.saveFile({ defaultPath: fileName }, fileData);
+            setError(null);
+
+        } else if (item.type === 'transcription') {
+            const textItem = item as ProcessedText;
+            const fileName = `${textItem.fileName.replace(/\.[^/.]+$/, "")}.txt`;
+            const fileData = new TextEncoder().encode(textItem.content);
+            await window.electronAPI.saveFile({ defaultPath: fileName }, fileData);
         }
-    } else if (item.type === 'transcription') {
-        const textItem = item as ProcessedText;
-        const blob = new Blob([textItem.content], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        const fileName = `${textItem.fileName.replace(/\.[^/.]+$/, "")}.txt`;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+    } catch (err: any) {
+        setError(`ファイルの保存中にエラーが発生しました: ${err.message}`);
+        console.error(err);
     }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
+    if (!window.electronAPI) {
+        setError("ファイル保存機能が利用できません。アプリケーションを再起動してください。");
+        return;
+    }
+
     const tableData = processedData.filter(d => d.type === 'table') as ProcessedTable[];
     if (tableData.length === 0) return;
 
-    if (outputMode === 'template') {
-        if (!excelTemplateData || !excelTemplateFile || !templateSettings.dataStartCell) {
-            setError('テンプレートファイルとデータ開始セルを指定してください。');
-            return;
-        }
-        try {
+    try {
+        let fileData: Uint8Array;
+        let fileName: string;
+
+        if (outputMode === 'template') {
+            if (!excelTemplateData || !excelTemplateFile || !templateSettings.dataStartCell) {
+                setError('テンプレートファイルとデータ開始セルを指定してください。');
+                return;
+            }
             const templateWb = XLSX.read(excelTemplateData, { type: 'buffer' });
             const newWb = XLSX.utils.book_new();
             const unmatchedNames: string[] = [];
@@ -748,8 +761,8 @@ const App = () => {
                 XLSX.utils.book_append_sheet(newWb, newSheet, sheetName);
             });
 
-            const outputFileName = `${excelTemplateFile.name.replace(/\.(xlsx|xls)$/, '')}_filled.xlsx`;
-            XLSX.writeFile(newWb, outputFileName);
+            fileData = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
+            fileName = `${excelTemplateFile.name.replace(/\.(xlsx|xls)$/, '')}_filled.xlsx`;
             
             if (unmatchedNames.length > 0) {
                 setError(`転記が完了しましたが、一部の氏名のシートが見つかりませんでした。
@@ -757,20 +770,23 @@ const App = () => {
             } else {
                 setError(null);
             }
-        } catch (err: any) {
-            setError(`テンプレートへの一括書き込み中にエラーが発生しました: ${err.message}`);
-            console.error(err);
+        } else {
+            const wb = XLSX.utils.book_new();
+            tableData.forEach(card => {
+              const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\/:*?"<>|]/g, '').substring(0, 31);
+              const ws_data = [['期間', card.title.yearMonth], ['件名', card.title.name], [], card.headers, ...card.data];
+              const ws = XLSX.utils.aoa_to_sheet(ws_data);
+              XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+            fileData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            fileName = 'Documents_All.xlsx';
         }
 
-    } else {
-        const wb = XLSX.utils.book_new();
-        tableData.forEach(card => {
-          const sheetName = `${card.title.yearMonth} ${card.title.name}`.replace(/[\	extit{}:"<>|]/g, '').substring(0, 31);
-          const ws_data = [['期間', card.title.yearMonth], ['件名', card.title.name], [], card.headers, ...card.data];
-          const ws = XLSX.utils.aoa_to_sheet(ws_data);
-          XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        });
-        XLSX.writeFile(wb, 'Documents_All.xlsx');
+        await window.electronAPI.saveFile({ defaultPath: fileName }, fileData);
+
+    } catch (err: any) {
+        setError(`一括保存中にエラーが発生しました: ${err.message}`);
+        console.error(err);
     }
   };
 
@@ -780,10 +796,10 @@ const App = () => {
       <div className="w-full max-w-6xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">ALCS文書OCR</h1>
-          <p className="mt-2 text-gray-600">
-            会計帳票などの画像やPDFをアップロードするとAIが内容をテキスト化します。<br/>
-            読み取りは完ぺきではないため、この画面上で直接、数字や文字を修正してください。<br/>
-            修正後、Excelまたはテキストファイルとしてダウンロードできます。
+          <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+            画像(PNG, JPG)やPDFをアップロードすると、AIが内容を読み取りデータ化します。<br />
+            認識結果は画面上で修正でき、Excelファイルとしてダウンロード可能です。<br />
+            <span className="font-semibold text-orange-600">※PDFは画像に変換して処理しますが、ファイルサイズが大きいと時間がかかるため、画像ファイルの利用をお勧めします。</span>
           </p>
         </header>
 
