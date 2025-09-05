@@ -37,6 +37,52 @@ ipcMain.handle('save-file', async (event, options, data) => {
   }
 });
 
+// Handle settings export
+ipcMain.handle('export-settings', async (event, settingsJson) => {
+  const focusedWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!focusedWindow) return { success: false, error: 'Window not found' };
+
+  const { canceled, filePath } = await dialog.showSaveDialog(focusedWindow, {
+    title: '設定をエクスポート',
+    defaultPath: 'ocr-settings.json',
+    filters: [{ name: 'JSON Files', extensions: ['json'] }]
+  });
+
+  if (canceled || !filePath) {
+    return { success: false, canceled: true };
+  }
+
+  try {
+    fs.writeFileSync(filePath, settingsJson);
+    return { success: true, path: filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Handle settings import
+ipcMain.handle('import-settings', async (event) => {
+  const focusedWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!focusedWindow) return { success: false, error: 'Window not found' };
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(focusedWindow, {
+    title: '設定をインポート',
+    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+
+  if (canceled || filePaths.length === 0) {
+    return { success: false, canceled: true };
+  }
+
+  try {
+    const data = fs.readFileSync(filePaths[0], 'utf-8');
+    return { success: true, data: data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // メニューテンプレートを定義
 const template = [
   {
@@ -97,6 +143,20 @@ const template = [
       {
         label: '全画面表示',
         role: 'togglefullscreen'
+      }
+    ]
+  },
+  {
+    label: '設定',
+    submenu: [
+      {
+        label: '勤務パターンの設定...',
+        click: () => {
+          const focusedWindow = BrowserWindow.getFocusedWindow();
+          if (focusedWindow) {
+            focusedWindow.webContents.send('open-settings-dialog', 'work-pattern');
+          }
+        }
       }
     ]
   },

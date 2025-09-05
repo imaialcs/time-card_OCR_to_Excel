@@ -32,5 +32,25 @@ interface Window {
      * @returns A promise that resolves when the file is saved.
      */
     saveFile: (options: { defaultPath: string }, data: Uint8Array) => Promise<void>;
+
+    /**
+     * Opens a save dialog to export profile settings to a JSON file.
+     * @param settingsJson The profile settings serialized as a JSON string.
+     * @returns A promise that resolves with the result of the operation.
+     */
+    exportSettings: (settingsJson: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+
+    /**
+     * Opens a file dialog to import profile settings from a JSON file.
+     * @returns A promise that resolves with the imported settings data or an error.
+     */
+    importSettings: () => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
+
+    /**
+     * Listens for a request from the main process to open a settings dialog.
+     * @param callback The function to execute when the event is received.
+     * @returns A function to remove the listener.
+     */
+    onOpenSettings: (callback: (event: any, type: string) => void) => () => void;
   };
 }
